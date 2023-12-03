@@ -1,0 +1,6 @@
+### Project specific
+credentials.json
+tokens/
+.idea/
+target/
+*.iml
