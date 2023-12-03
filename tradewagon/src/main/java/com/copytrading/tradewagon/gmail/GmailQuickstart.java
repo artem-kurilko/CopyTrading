@@ -14,6 +14,8 @@ import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.GmailScopes;
 import com.google.api.services.gmail.model.Label;
 import com.google.api.services.gmail.model.ListLabelsResponse;
+import com.google.api.services.gmail.model.ListMessagesResponse;
+
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -80,9 +82,14 @@ public class GmailQuickstart {
                 .setApplicationName(APPLICATION_NAME)
                 .build();
 
+
         // Print the labels in the user's account.
-        String user = "me";
-        ListLabelsResponse listResponse = service.users().labels().list(user).execute();
+        String user = "kurilko365@gmail.com";
+        ListMessagesResponse resp = service.users().messages().list(user).execute();
+
+        System.out.println(resp);
+
+        /*ListLabelsResponse listResponse = service.users().labels().list(user).execute();
         List<Label> labels = listResponse.getLabels();
         if (labels.isEmpty()) {
             System.out.println("No labels found.");
@@ -91,6 +98,6 @@ public class GmailQuickstart {
             for (Label label : labels) {
                 System.out.printf("- %s\n", label.getName());
             }
-        }
+        }*/
     }
 }
