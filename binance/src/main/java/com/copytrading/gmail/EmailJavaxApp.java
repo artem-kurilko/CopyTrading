@@ -1,4 +1,4 @@
-package com.copytrading.tradewagon.gmail;
+package com.copytrading.gmail;
 
 import com.sun.mail.imap.IMAPFolder;
 import com.sun.mail.imap.IdleManager;
@@ -11,16 +11,19 @@ import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static com.copytrading.util.ConfigUtils.getProperty;
+
 public class EmailJavaxApp {
     private static String host = "smtp.gmail.com";
-    private static String username = "";
-    private static String password = "";
     private static String protocol = "smtp";
     private static String debug = "true";
     private static String auth = "true";
     private static String enable = "true";
 
     public static void main(String[] args) throws MessagingException, IOException {
+        String username = getProperty("gmail.username");
+        String password = getProperty("gmail.password");
+
         IMAPFolder folder = null;
         Store store = null;
         String subject = null;

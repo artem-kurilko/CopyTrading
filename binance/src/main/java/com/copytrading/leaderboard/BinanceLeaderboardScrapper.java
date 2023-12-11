@@ -1,10 +1,10 @@
-package com.copytrading.tradewagon.leaderboard;
+package com.copytrading.leaderboard;
 
-import com.copytrading.tradewagon.leaderboard.model.Position;
-import com.copytrading.tradewagon.leaderboard.rest.DefaultClient;
-import com.copytrading.tradewagon.leaderboard.model.Leader;
-import com.copytrading.tradewagon.leaderboard.model.PeriodType;
-import com.copytrading.tradewagon.leaderboard.model.StatisticsType;
+import com.copytrading.leaderboard.model.Position;
+import com.copytrading.leaderboard.rest.DefaultClient;
+import com.copytrading.leaderboard.model.Leader;
+import com.copytrading.leaderboard.model.PeriodType;
+import com.copytrading.leaderboard.model.StatisticsType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;

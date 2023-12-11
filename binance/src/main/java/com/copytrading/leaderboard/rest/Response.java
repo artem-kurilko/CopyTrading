@@ -1,4 +1,4 @@
-package com.copytrading.tradewagon.leaderboard.rest;
+package com.copytrading.leaderboard.rest;
 
 import lombok.Data;
 

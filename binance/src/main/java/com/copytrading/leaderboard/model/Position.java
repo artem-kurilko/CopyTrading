@@ -1,4 +1,4 @@
-package com.copytrading.tradewagon.leaderboard.model;
+package com.copytrading.leaderboard.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
