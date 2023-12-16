@@ -1,7 +1,6 @@
 ### Project specific
-credentials.json
-application.properties
-tokens/
 .idea/
+out/
 target/
 *.iml
+application.properties
