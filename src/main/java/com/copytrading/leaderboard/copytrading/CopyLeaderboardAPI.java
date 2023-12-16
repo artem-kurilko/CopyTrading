@@ -1,10 +1,11 @@
 package com.copytrading.leaderboard.copytrading;
 
-import com.copytrading.leaderboard.copytrading.model.*;
+import com.copytrading.leaderboard.copytrading.model.LeaderboardParams;
+import com.copytrading.leaderboard.copytrading.model.PositionHistoryParams;
 import com.copytrading.leaderboard.copytrading.model.response.details.TraderDetails;
+import com.copytrading.leaderboard.copytrading.model.response.leaderboard.CopyTradingLeaderboard;
 import com.copytrading.leaderboard.copytrading.model.response.performance.TraderPerformance;
 import com.copytrading.leaderboard.copytrading.model.response.positions.active.ActivePositions;
-import com.copytrading.leaderboard.copytrading.model.response.leaderboard.CopyTradingLeaderboard;
 import com.copytrading.leaderboard.copytrading.model.response.positions.history.PositionHistory;
 import retrofit2.Call;
 import retrofit2.http.Body;

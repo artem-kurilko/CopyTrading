@@ -2,7 +2,6 @@ package com.copytrading.leaderboard.copytrading;
 
 import com.copytrading.leaderboard.copytrading.model.*;
 import com.copytrading.leaderboard.copytrading.model.response.ResponseEntity;
-import com.copytrading.leaderboard.copytrading.model.response.details.TraderData;
 import com.copytrading.leaderboard.copytrading.model.response.details.TraderDetails;
 import com.copytrading.leaderboard.copytrading.model.response.leaderboard.CopyTradingLeaderboard;
 import com.copytrading.leaderboard.copytrading.model.response.leaderboard.TraderInfo;
@@ -23,17 +22,26 @@ import java.util.List;
 import static com.copytrading.leaderboard.copytrading.model.BinanceConstants.baseUrl;
 import static java.lang.Double.parseDouble;
 
-//TODO: - in validate method, what is status active, is it active trader or just online
 public class CopyLeaderboardScrapper {
-    private static final CopyLeaderboardAPI client = getBinanceCopyTradingClient();
+    private static final CopyLeaderboardAPI client = getCopyLeaderboardClient();
     private static final String testPortfolioId = "3699966474805097216";
+
+    private static CopyLeaderboardAPI getCopyLeaderboardClient() {
+        OkHttpClient.Builder httpClient = new OkHttpClient.Builder();
+        Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl(baseUrl)
+                .addConverterFactory(GsonConverterFactory.create())
+                .client(httpClient.build())
+                .build();
+        return retrofit.create(CopyLeaderboardAPI.class);
+    }
 
     @SneakyThrows
     public static void main(String[] args) {
-        /*LeaderboardParams params = LeaderboardParams.builder()
+        LeaderboardParams params = LeaderboardParams.builder()
                 .pageNumber(1)
                 .pageSize(18)
-                .timeRange(TimeRange.D30.value)
+                .timeRange(TimeRange.D90.value)
                 .dataType(FilterType.SHARP_RATIO)
                 .favoriteOnly(false)
                 .hideFull(false)
@@ -43,19 +51,9 @@ public class CopyLeaderboardScrapper {
         CopyTradingLeaderboard leaderboard = tradersLeaderboard(params);
         List<TraderInfo> traders = leaderboard.getData().getList();
         for (TraderInfo trader : traders) {
-            String portfolioId = trader.getLeadPortfolioId();
-            TraderData traderData = getTraderDetails(portfolioId).getData();
-            if (traderData.isPositionShow()) {
-                ActivePositions positions = activePositions(portfolioId);
-                if (!positions.getData().isEmpty()) {
-                    System.out.println("Name: " + trader.getNickname() + " Id: " + portfolioId + " Is positionsShow: " + traderData.isPositionShow());
-                }
-            }
-        }*/
-
-        String id = "3699966474805097216";
-        ActivePositions positions = activePositions(id);
-        System.out.println(positions);
+            if (isPositionsShown(trader.getLeadPortfolioId()))
+                System.out.println(trader);
+        }
     }
 
     public static CopyTradingLeaderboard tradersLeaderboard(LeaderboardParams params) throws IOException {
@@ -107,20 +105,9 @@ public class CopyLeaderboardScrapper {
         return response;
     }
 
-    public static boolean isCopyTraderActiveAndShowPositions(String portfolioId) throws IOException {
-        TraderDetails traderDetails = getTraderDetails(portfolioId);
-        checkResponseStatus(traderDetails);
-        return traderDetails.getData().isPositionShow() && traderDetails.getData().getStatus().equals("ACTIVE");
-    }
-
-    public static CopyLeaderboardAPI getBinanceCopyTradingClient() {
-        OkHttpClient.Builder httpClient = new OkHttpClient.Builder();
-        Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl(baseUrl)
-                .addConverterFactory(GsonConverterFactory.create())
-                .client(httpClient.build())
-                .build();
-        return retrofit.create(CopyLeaderboardAPI.class);
+    private static boolean isPositionsShown(String portfolioId) throws IOException {
+        var details = getTraderDetails(portfolioId);
+        return details.getData().isPositionShow();
     }
 
     private static <E extends ResponseEntity> void checkResponseStatus(E response) {

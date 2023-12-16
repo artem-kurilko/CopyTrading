@@ -10,7 +10,7 @@ import java.util.List;
 public class TraderInfo {
     private String leadPortfolioId;
     private String nickname;
-    private String avatarUrl;
+    private transient String avatarUrl;
     private int currentCopyCount;
     private int maxCopyCount;
     private double roi;
@@ -19,5 +19,5 @@ public class TraderInfo {
     private double mdd;
     private String apiKeyTag;
     private double sharpRatio;
-    private List<ChartItem> chartItems;
+    private transient List<ChartItem> chartItems;
 }
