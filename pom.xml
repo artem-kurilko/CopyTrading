@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>org.example</groupId>
+    <groupId>com.bestartem</groupId>
     <artifactId>copytrading</artifactId>
     <version>1.0.0</version>
     <packaging>pom</packaging>
@@ -34,8 +34,8 @@
         </dependency>
         <dependency>
             <groupId>io.github.binance</groupId>
-            <artifactId>binance-connector-java</artifactId>
-            <version>3.1.0</version>
+            <artifactId>binance-futures-connector-java</artifactId>
+            <version>3.0.3</version>
         </dependency>
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>

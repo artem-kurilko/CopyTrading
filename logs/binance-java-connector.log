@@ -1,0 +1,2 @@
+2023-12-16 16:18:15.397[1702736295397] | INFO  | main       | c.b.c.f.client.utils.RequestHandler  - GET https://fapi.binance.com/fapi/v1/exchangeInfo
+2023-12-16 16:19:07.017[1702736347017] | INFO  | main       | c.b.c.f.client.utils.RequestHandler  - GET https://fapi.binance.com/fapi/v1/time

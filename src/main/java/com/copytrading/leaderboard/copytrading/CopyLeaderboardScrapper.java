@@ -1,13 +1,14 @@
 package com.copytrading.leaderboard.copytrading;
 
-import com.copytrading.leaderboard.copytrading.model.LeaderboardParams;
-import com.copytrading.leaderboard.copytrading.model.PositionHistoryParams;
-import com.copytrading.leaderboard.copytrading.model.TimeRange;
+import com.copytrading.leaderboard.copytrading.model.*;
 import com.copytrading.leaderboard.copytrading.model.response.ResponseEntity;
+import com.copytrading.leaderboard.copytrading.model.response.details.TraderData;
 import com.copytrading.leaderboard.copytrading.model.response.details.TraderDetails;
 import com.copytrading.leaderboard.copytrading.model.response.leaderboard.CopyTradingLeaderboard;
+import com.copytrading.leaderboard.copytrading.model.response.leaderboard.TraderInfo;
 import com.copytrading.leaderboard.copytrading.model.response.performance.TraderPerformance;
 import com.copytrading.leaderboard.copytrading.model.response.positions.active.ActivePositions;
+import com.copytrading.leaderboard.copytrading.model.response.positions.active.PositionData;
 import com.copytrading.leaderboard.copytrading.model.response.positions.history.PositionHistory;
 import lombok.SneakyThrows;
 import okhttp3.OkHttpClient;
@@ -16,16 +17,45 @@ import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import static com.copytrading.leaderboard.copytrading.model.BinanceConstants.baseUrl;
+import static java.lang.Double.parseDouble;
 
 //TODO: - in validate method, what is status active, is it active trader or just online
 public class CopyLeaderboardScrapper {
     private static final CopyLeaderboardAPI client = getBinanceCopyTradingClient();
+    private static final String testPortfolioId = "3699966474805097216";
 
     @SneakyThrows
     public static void main(String[] args) {
-        String portfolioId = "3701555442111522817";
+        /*LeaderboardParams params = LeaderboardParams.builder()
+                .pageNumber(1)
+                .pageSize(18)
+                .timeRange(TimeRange.D30.value)
+                .dataType(FilterType.SHARP_RATIO)
+                .favoriteOnly(false)
+                .hideFull(false)
+                .nickName("")
+                .order(OrderSort.DESC)
+                .build();
+        CopyTradingLeaderboard leaderboard = tradersLeaderboard(params);
+        List<TraderInfo> traders = leaderboard.getData().getList();
+        for (TraderInfo trader : traders) {
+            String portfolioId = trader.getLeadPortfolioId();
+            TraderData traderData = getTraderDetails(portfolioId).getData();
+            if (traderData.isPositionShow()) {
+                ActivePositions positions = activePositions(portfolioId);
+                if (!positions.getData().isEmpty()) {
+                    System.out.println("Name: " + trader.getNickname() + " Id: " + portfolioId + " Is positionsShow: " + traderData.isPositionShow());
+                }
+            }
+        }*/
+
+        String id = "3699966474805097216";
+        ActivePositions positions = activePositions(id);
+        System.out.println(positions);
     }
 
     public static CopyTradingLeaderboard tradersLeaderboard(LeaderboardParams params) throws IOException {
@@ -57,6 +87,15 @@ public class CopyLeaderboardScrapper {
         ActivePositions response = apiCall.execute().body();
         assert response != null;
         checkResponseStatus(response);
+
+        List<PositionData> activePositions = new ArrayList<>();
+        List<PositionData> positionData = response.getData();
+        for (PositionData position : positionData) {
+            if (parseDouble(position.getPositionAmount()) != 0) {
+                activePositions.add(position);
+            }
+        }
+        response.setData(activePositions);
         return response;
     }
 
