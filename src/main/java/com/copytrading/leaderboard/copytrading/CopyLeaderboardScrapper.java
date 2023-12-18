@@ -50,10 +50,12 @@ public class CopyLeaderboardScrapper {
                 .build();
         CopyTradingLeaderboard leaderboard = tradersLeaderboard(params);
         List<TraderInfo> traders = leaderboard.getData().getList();
-        for (TraderInfo trader : traders) {
+        /*for (TraderInfo trader : traders) {
             if (isPositionsShown(trader.getLeadPortfolioId()))
                 System.out.println(trader);
-        }
+        }*/
+
+        System.out.println(activePositions(testPortfolioId));
     }
 
     public static CopyTradingLeaderboard tradersLeaderboard(LeaderboardParams params) throws IOException {
