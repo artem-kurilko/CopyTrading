@@ -24,7 +24,6 @@ import static java.lang.Double.parseDouble;
 
 public class CopyLeaderboardScrapper {
     private static final CopyLeaderboardAPI client = getCopyLeaderboardClient();
-    private static final String testPortfolioId = "3699966474805097216";
 
     private static CopyLeaderboardAPI getCopyLeaderboardClient() {
         OkHttpClient.Builder httpClient = new OkHttpClient.Builder();
@@ -42,7 +41,7 @@ public class CopyLeaderboardScrapper {
                 .pageNumber(1)
                 .pageSize(18)
                 .timeRange(TimeRange.D90.value)
-                .dataType(FilterType.SHARP_RATIO)
+                .dataType(FilterType.COPIER_PNL)
                 .favoriteOnly(false)
                 .hideFull(false)
                 .nickName("")
@@ -50,12 +49,12 @@ public class CopyLeaderboardScrapper {
                 .build();
         CopyTradingLeaderboard leaderboard = tradersLeaderboard(params);
         List<TraderInfo> traders = leaderboard.getData().getList();
-        /*for (TraderInfo trader : traders) {
-            if (isPositionsShown(trader.getLeadPortfolioId()))
-                System.out.println(trader);
-        }*/
-
-        System.out.println(activePositions(testPortfolioId));
+        for (TraderInfo trader : traders) {
+            if (isPositionsShown(trader.getLeadPortfolioId())) {
+                if (activePositions(trader.getLeadPortfolioId()).getData().size() != 0)
+                    System.out.println(trader.getLeadPortfolioId());
+            }
+        }
     }
 
     public static CopyTradingLeaderboard tradersLeaderboard(LeaderboardParams params) throws IOException {
@@ -107,8 +106,8 @@ public class CopyLeaderboardScrapper {
         return response;
     }
 
-    private static boolean isPositionsShown(String portfolioId) throws IOException {
-        var details = getTraderDetails(portfolioId);
+    private static boolean isPositionsShown(String traderId) throws IOException {
+        var details = getTraderDetails(traderId);
         return details.getData().isPositionShow();
     }
 

@@ -1,6 +1,5 @@
 package com.copytrading.service;
 
-import com.copytrading.connector.model.OrderSide;
 import com.copytrading.connector.model.OrderType;
 import com.copytrading.connector.model.TimeInForce;
 import com.copytrading.leaderboard.copytrading.model.response.positions.active.PositionData;
@@ -17,18 +16,18 @@ import static java.lang.Double.parseDouble;
 public class OrderConverter {
 
     public static LinkedHashMap<String,Object> convertOrderParams(PositionData data) {
-        OrderSide side;
-        if (parseDouble(data.getEntryPrice()) < parseDouble(data.getBreakEvenPrice()))
-            side = SELL;
-        else side = BUY;
+        double entryPrice = parseDouble(data.getEntryPrice());
+        double markPrice = parseDouble(data.getMarkPrice());
+        double profit = parseDouble(data.getUnrealizedProfit());
+        String side = entryPrice < markPrice && profit > 0 ? BUY.name() : SELL.name();
 
         LinkedHashMap<String,Object> params = new LinkedHashMap<>();
         params.put("symbol", data.getSymbol());
         params.put("side", side);
         params.put("positionSide", data.getPositionSide());
         params.put("quantity", data.getPositionAmount());
-        params.put("stopPrice", data.getBreakEvenPrice());
-        params.put("price", data.getMarkPrice());
+//        params.put("stopPrice", data.getBreakEvenPrice());
+        params.put("price", data.getEntryPrice());
         params.put("type", OrderType.LIMIT.name());
         params.put("timeInForce", TimeInForce.GTC.name());
 
