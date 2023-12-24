@@ -1,5 +1,7 @@
 package com.copytrading.util;
 
+import org.json.JSONObject;
+
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -8,14 +10,13 @@ import java.util.Hashtable;
 import java.util.Map;
 import java.util.Properties;
 
-import static com.copytrading.leaderboard.copytrading.model.BinanceConstants.resourcePath;
-
 /**
  * Service config methods and parameters.
  */
 public class ConfigUtils {
     public static final int PARSE_POSITIONS_DELAY = 1000; // time in milliseconds
-    private static final String TRADERS_FILE_PATH = "";
+    public static final String resourcePath = "src/main/resources/application.properties";
+    private static final String logPath = "orders.csv";
 
     public static String getProperty(String name) throws IOException {
         Properties props = new Properties();
@@ -39,9 +40,9 @@ public class ConfigUtils {
         return headers;
     }
 
-    public static void storeRecord(String some) {
-        try (FileWriter writer = new FileWriter(TRADERS_FILE_PATH)) {
-            writer.write(some + "\n");
+    public static void storeOrderRecord(JSONObject order) {
+        try (FileWriter writer = new FileWriter(logPath)) {
+            writer.write(order + "\n");
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

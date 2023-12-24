@@ -19,10 +19,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.copytrading.leaderboard.copytrading.model.BinanceConstants.baseUrl;
 import static java.lang.Double.parseDouble;
 
 public class CopyLeaderboardScrapper {
+    private static final String baseUrl = "https://www.binance.com/bapi/futures/";
     private static final CopyLeaderboardAPI client = getCopyLeaderboardClient();
 
     private static CopyLeaderboardAPI getCopyLeaderboardClient() {

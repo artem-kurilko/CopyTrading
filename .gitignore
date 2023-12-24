@@ -4,4 +4,6 @@ out/
 target/
 logs/
 *.iml
+*.csv
+*.log
 application.properties
