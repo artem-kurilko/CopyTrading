@@ -16,7 +16,6 @@ import java.util.Properties;
 public class ConfigUtils {
     public static final int PARSE_POSITIONS_DELAY = 1000; // time in milliseconds
     public static final String resourcePath = "src/main/resources/application.properties";
-    private static final String logPath = "orders.csv";
 
     public static String getProperty(String name) throws IOException {
         Properties props = new Properties();
@@ -38,14 +37,6 @@ public class ConfigUtils {
         headers.put("Content-Type", "application/json; charset=utf-8");
         headers.put("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0");
         return headers;
-    }
-
-    public static void storeOrderRecord(JSONObject order) {
-        try (FileWriter writer = new FileWriter(logPath)) {
-            writer.write(order + "\n");
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
     }
 
 }

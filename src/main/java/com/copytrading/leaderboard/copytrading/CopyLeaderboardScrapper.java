@@ -11,6 +11,7 @@ import com.copytrading.leaderboard.copytrading.model.response.positions.active.P
 import com.copytrading.leaderboard.copytrading.model.response.positions.history.PositionHistory;
 import lombok.SneakyThrows;
 import okhttp3.OkHttpClient;
+import org.json.JSONObject;
 import retrofit2.Call;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
@@ -41,7 +42,7 @@ public class CopyLeaderboardScrapper {
                 .pageNumber(1)
                 .pageSize(18)
                 .timeRange(TimeRange.D90.value)
-                .dataType(FilterType.COPIER_PNL)
+                .dataType(FilterType.AUM)
                 .favoriteOnly(false)
                 .hideFull(false)
                 .nickName("")
@@ -49,10 +50,14 @@ public class CopyLeaderboardScrapper {
                 .build();
         CopyTradingLeaderboard leaderboard = tradersLeaderboard(params);
         List<TraderInfo> traders = leaderboard.getData().getList();
+        int i = 0;
         for (TraderInfo trader : traders) {
             if (isPositionsShown(trader.getLeadPortfolioId())) {
-                if (activePositions(trader.getLeadPortfolioId()).getData().size() != 0)
-                    System.out.println(trader.getLeadPortfolioId());
+                System.out.println(new JSONObject(trader).toString(2));
+                System.out.println();
+                i++;
+                if (i==5)
+                    break;
             }
         }
     }

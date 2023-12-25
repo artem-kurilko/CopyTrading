@@ -8,8 +8,6 @@ import com.copytrading.leaderboard.futures.model.response.FuturesLeaderboard;
 import com.copytrading.leaderboard.futures.model.response.TraderPositions;
 import lombok.SneakyThrows;
 import okhttp3.OkHttpClient;
-import org.apache.log4j.LogManager;
-import org.apache.log4j.Logger;
 import retrofit2.Call;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
@@ -20,7 +18,6 @@ import static com.copytrading.util.ConfigUtils.getHeaders;
 
 //TODO: look trade type perpetual, options and what are the difference
 public class FuturesLeaderboardScrapper {
-    private static final Logger logger = LogManager.getLogger(FuturesLeaderboardScrapper.class);
     private static final FuturesLeaderboardAPI client = getFuturesLeaderboardClient();
 
     private static FuturesLeaderboardAPI getFuturesLeaderboardClient() {

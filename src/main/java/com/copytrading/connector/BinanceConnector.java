@@ -13,7 +13,6 @@ import java.util.Objects;
 import static com.copytrading.connector.config.BinanceConfig.testClient;
 import static com.copytrading.leaderboard.copytrading.CopyLeaderboardScrapper.activePositions;
 import static com.copytrading.service.OrderConverter.convertOrderParams;
-import static com.copytrading.util.ConfigUtils.storeOrderRecord;
 
 /**
  * Binance service connector.
@@ -50,7 +49,8 @@ public class BinanceConnector {
     public JSONObject placeOrder(LinkedHashMap<String, Object> parameters) {
         String response = client.account().newOrder(parameters);
         JSONObject order = new JSONObject(response);
-        storeOrderRecord(order);
+//        someShit();
+//        storeOrderRecord(order);
         return order;
     }
 
