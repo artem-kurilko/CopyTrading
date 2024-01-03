@@ -9,9 +9,7 @@ import com.copytrading.leaderboard.copytrading.model.response.performance.Trader
 import com.copytrading.leaderboard.copytrading.model.response.positions.active.ActivePositions;
 import com.copytrading.leaderboard.copytrading.model.response.positions.active.PositionData;
 import com.copytrading.leaderboard.copytrading.model.response.positions.history.PositionHistory;
-import lombok.SneakyThrows;
 import okhttp3.OkHttpClient;
-import org.json.JSONObject;
 import retrofit2.Call;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
@@ -26,40 +24,38 @@ public class CopyLeaderboardScrapper {
     private static final String baseUrl = "https://www.binance.com/bapi/futures/";
     private static final CopyLeaderboardAPI client = getCopyLeaderboardClient();
 
-    private static CopyLeaderboardAPI getCopyLeaderboardClient() {
-        OkHttpClient.Builder httpClient = new OkHttpClient.Builder();
-        Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl(baseUrl)
-                .addConverterFactory(GsonConverterFactory.create())
-                .client(httpClient.build())
-                .build();
-        return retrofit.create(CopyLeaderboardAPI.class);
+    public static List<String> getTradersIds(int amount, TimeRange timeRange, FilterType filterType) throws IOException {
+        List<String> tradersIds = new ArrayList<>();
+        for (int i = 1; i < 5; i++) {
+            CopyTradingLeaderboard leaderboard = tradersLeaderboard(timeRange, filterType, i);
+            List<TraderInfo> traders = leaderboard.getData().getList();
+            for (TraderInfo trader : traders) {
+                if (isPositionsShown(trader.getLeadPortfolioId())) {
+                    tradersIds.add(trader.getLeadPortfolioId());
+                    amount--;
+                    if (amount==0)
+                        return tradersIds;
+                }
+            }
+        } return null;
     }
 
-    @SneakyThrows
-    public static void main(String[] args) {
+    public static CopyTradingLeaderboard tradersLeaderboard(TimeRange timeRange, FilterType filterBy) throws IOException {
+        return tradersLeaderboard(timeRange, filterBy, 1);
+    }
+
+    public static CopyTradingLeaderboard tradersLeaderboard(TimeRange timeRange, FilterType filterBy, int pageNumber) throws IOException {
         LeaderboardParams params = LeaderboardParams.builder()
-                .pageNumber(1)
+                .pageNumber(pageNumber)
                 .pageSize(18)
-                .timeRange(TimeRange.D90.value)
-                .dataType(FilterType.AUM)
+                .timeRange(timeRange.value)
+                .dataType(filterBy)
                 .favoriteOnly(false)
                 .hideFull(false)
                 .nickName("")
                 .order(OrderSort.DESC)
                 .build();
-        CopyTradingLeaderboard leaderboard = tradersLeaderboard(params);
-        List<TraderInfo> traders = leaderboard.getData().getList();
-        int i = 0;
-        for (TraderInfo trader : traders) {
-            if (isPositionsShown(trader.getLeadPortfolioId())) {
-                System.out.println(new JSONObject(trader).toString(2));
-                System.out.println();
-                i++;
-                if (i==5)
-                    break;
-            }
-        }
+        return tradersLeaderboard(params);
     }
 
     public static CopyTradingLeaderboard tradersLeaderboard(LeaderboardParams params) throws IOException {
@@ -111,7 +107,7 @@ public class CopyLeaderboardScrapper {
         return response;
     }
 
-    private static boolean isPositionsShown(String traderId) throws IOException {
+    public static boolean isPositionsShown(String traderId) throws IOException {
         var details = getTraderDetails(traderId);
         return details.getData().isPositionShow();
     }
@@ -119,6 +115,16 @@ public class CopyLeaderboardScrapper {
     private static <E extends ResponseEntity> void checkResponseStatus(E response) {
         if (!response.isSuccess())
             throw new RuntimeException("Exception while sending request. " + response);
+    }
+
+    private static CopyLeaderboardAPI getCopyLeaderboardClient() {
+        OkHttpClient.Builder httpClient = new OkHttpClient.Builder();
+        Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl(baseUrl)
+                .addConverterFactory(GsonConverterFactory.create())
+                .client(httpClient.build())
+                .build();
+        return retrofit.create(CopyLeaderboardAPI.class);
     }
 
 }

@@ -14,7 +14,7 @@ import java.util.Properties;
  * Service config methods and parameters.
  */
 public class ConfigUtils {
-    public static final int PARSE_POSITIONS_DELAY = 1000; // time in milliseconds
+    public static final int PARSE_POSITIONS_DELAY = 5000; // time in milliseconds
     public static final String resourcePath = "src/main/resources/application.properties";
 
     public static String getProperty(String name) throws IOException {

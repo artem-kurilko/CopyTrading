@@ -9,6 +9,6 @@ public enum FilterType {
     ROI,
     MDD,
     COPY_COUNT,
-    COPIER_PNL,
-    SHARP_RATIO
+    COPIER_PNL, // good
+    SHARP_RATIO // bad. seems like doesn't matter, traders that copy leaders by sharp have negative pnl
 }
