@@ -24,7 +24,8 @@ public class BinanceConnectorWorkTest {
 
     @Test
     public void testNewOrder() throws IOException {
-        LinkedHashMap<String,Object> params = convertOrderParams(getOrderExample());
+        double balance = 200;
+        LinkedHashMap<String,Object> params = convertOrderParams(getOrderExample(), balance);
         String order = connector.placeOrder(params);
         System.out.println(order);
     }

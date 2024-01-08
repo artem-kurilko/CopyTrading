@@ -23,6 +23,15 @@ public class BinanceConnector {
         return new JSONObject(response).toString(2);
     }
 
+    public static void main(String[] args) {
+
+    }
+
+    public String exchangeInfo() {
+        String result = client.market().exchangeInfo();
+        return new JSONObject(result).toString(2);
+    }
+
     public String positionInfo() {
         LinkedHashMap<String, Object> parameters = new LinkedHashMap<>();
         String result = client.account().positionInformation(parameters);
