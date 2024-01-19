@@ -1,14 +1,14 @@
 package com.copytrading.leaderboard;
 
-import com.copytrading.leaderboard.copytrading.model.*;
-import com.copytrading.leaderboard.copytrading.model.response.details.TraderData;
-import com.copytrading.leaderboard.copytrading.model.response.leaderboard.CopyTradingLeaderboard;
-import com.copytrading.leaderboard.copytrading.model.response.leaderboard.TraderInfo;
+import com.copytrading.copytradingleaderboard.model.*;
+import com.copytrading.copytradingleaderboard.model.response.details.TraderData;
+import com.copytrading.copytradingleaderboard.model.response.leaderboard.CopyTradingLeaderboard;
+import com.copytrading.copytradingleaderboard.model.response.leaderboard.TraderInfo;
 
 import java.io.IOException;
 import java.util.List;
 
-import static com.copytrading.leaderboard.copytrading.CopyLeaderboardScrapper.*;
+import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.*;
 
 public class CopyLeaderboardAPITest {
 
@@ -24,7 +24,7 @@ public class CopyLeaderboardAPITest {
                 .pageSize(10)
                 .portfolioId(portfolioId)
                 .build();
-        System.out.println(positionsHistory(params));
+//        System.out.println(positionsHistory(params));
     }
 
     public void getLeaderboardTest() throws IOException {

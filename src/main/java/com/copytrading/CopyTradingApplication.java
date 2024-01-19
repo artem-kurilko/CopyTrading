@@ -1,25 +1,27 @@
 package com.copytrading;
 
 import com.copytrading.connector.BinanceConnector;
-import com.copytrading.leaderboard.copytrading.model.FilterType;
-import com.copytrading.leaderboard.copytrading.model.TimeRange;
-import com.copytrading.leaderboard.copytrading.model.response.positions.active.PositionData;
+import com.copytrading.copytradingleaderboard.model.FilterType;
+import com.copytrading.copytradingleaderboard.model.TimeRange;
+import com.copytrading.copytradingleaderboard.model.response.positions.active.PositionData;
+import com.copytrading.model.BaseAsset;
+import com.copytrading.model.OrderInfo;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.IOException;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.copytrading.connector.config.BinanceConfig.testClient;
-import static com.copytrading.leaderboard.copytrading.CopyLeaderboardScrapper.activePositions;
-import static com.copytrading.leaderboard.copytrading.CopyLeaderboardScrapper.getTradersIds;
+import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.activePositions;
+import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.getTradersIds;
+import static com.copytrading.model.BaseAsset.USDT;
 import static com.copytrading.service.OrderConverter.convertOrderParams;
 import static com.copytrading.util.ConfigUtils.PARSE_POSITIONS_DELAY;
 
@@ -30,26 +32,29 @@ import static com.copytrading.util.ConfigUtils.PARSE_POSITIONS_DELAY;
  */
 
 /**
- * TODO: протестироваь трейдеров за разный отрезок времени и может ещё по roi и pnl смотреть
+ * TODO:
+ *  - копирование напрямую с лидерборда плохо, потому что открытые позиции не у топ трейдеров, например пнл 1го открытого 180 000, пнл 1го закрытого 1 200 000
+ *  - протестироваь трейдеров за разный отрезок времени и может ещё по roi и pnl смотреть
+ *
  */
 @Slf4j
 public class CopyTradingApplication {
     private static final BinanceConnector client = new BinanceConnector(testClient());
     private static final int partitions = 3; // amount of traders to follow and divide balance equally
-    private static HashMap<String, Double> tradersBalance = new HashMap<>();
+    private static HashMap<String, Double> tradersBalance = new HashMap<>(); // available balance for copying each trader
+    private static final List<OrderInfo> ordersStorage = new ArrayList<>();
 
-    public static void main(String[] args) throws IOException {
+    public static void mafin(String[] args) throws IOException {
         System.out.println("Running... " + new Date());
         List<String> ids = getTradersIds(partitions, TimeRange.D30, FilterType.COPIER_PNL);
-        tradersBalance = initBalance(ids);
+        tradersBalance = initBalance(ids, USDT);
 
         ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
         executorService
                 .scheduleWithFixedDelay(() -> {
                     try {
                         for (String id : ids)
-                            emulateOrders(id);
-                        checkOrdersStatus();
+                            checkOrdersStatus(id);
                     } catch (Exception e) {
                         executorService.shutdown();
                         e.printStackTrace();
@@ -57,13 +62,18 @@ public class CopyTradingApplication {
                 }, 0, PARSE_POSITIONS_DELAY, TimeUnit.MILLISECONDS);
     }
 
-    private static HashMap<String, Double> initBalance(List<String> tradersIds) {
+    /**
+     * Initialized balance evenly divided between {@link partitions} size traders.
+     * @param tradersIds lead trader portfolio id (necessary to have show positions true)
+     * @param baseAsset asset balance
+     * @return hashmap of trader's id and balance to make trades.
+     */
+    private static HashMap<String, Double> initBalance(List<String> tradersIds, BaseAsset baseAsset) {
         HashMap<String, Double> initializedBalance = new HashMap<>();
-        final String baseAsset = "USDT";
         JSONArray balance = new JSONArray(client.balance());
         for (int i = 0; i < balance.length(); i++) {
             JSONObject currencyBalance = balance.getJSONObject(i);
-            if (currencyBalance.getString("asset").equals(baseAsset)) {
+            if (currencyBalance.getString("asset").equals(baseAsset.name())) {
                 double available = currencyBalance.getDouble("availableBalance");
                 double partitionBalance = available / partitions;
                 tradersIds.forEach(id -> initializedBalance.put(id, partitionBalance));
@@ -73,12 +83,36 @@ public class CopyTradingApplication {
         throw new RuntimeException("INIT BALANCE EXCEPTION. Traders ids: " + tradersIds + "\nBalance: " + client.balance());
     }
 
+    @SneakyThrows
+    public static void main(String[] args) {
+        List<String> ids = getTradersIds(partitions, TimeRange.D30, FilterType.COPIER_PNL);
+        ids.forEach(System.out::println);
+    }
+
+    /**
+     * Checks storage orders, trader leaderboard orders, if he has new then copy.
+     * @param id traders leaderboard id
+     * @throws IOException if exception occurs
+     */
+    private static void checkOrdersStatus(String id) throws IOException {
+        // check that orders still active in storage
+        ObjectMapper mapper = new ObjectMapper();
+        List<String> openOrders = Arrays.asList(mapper.readValue(client.openOrders(), String[].class));
+        OrderInfo orderInfo = ordersStorage.stream().filter(info -> info.getTraderId().equals(id)).findFirst().get();
+
+        // сделать работу с балансом
+
+        // check that trader's active orders are the same as mine, and if he has any i executed then don't copy,
+        // and check if he has new and we have balance then emulate
+        openOrders.forEach(System.out::println);
+    }
+
     /**
      * Emulates trader's active orders
      * @param id trader's id
      * @throws IOException instance
      */
-    private synchronized static void emulateOrders(String id) throws IOException {
+    private static void emulateOrders(String id) throws IOException {
         List<PositionData> activeOrders = activePositions(id).getData();
         double balance = tradersBalance.get(id);
 
@@ -102,13 +136,6 @@ public class CopyTradingApplication {
             }
             tradersBalance.put(id, balance);
         }
-    }
-
-    /**
-     * Checks active orders, if lead trader executed or cancelled them
-     */
-    private static void checkOrdersStatus() {
-        // do some
     }
 
 }

@@ -1,14 +1,12 @@
 package com.copytrading.connector;
 
-import com.copytrading.connector.BinanceConnector;
-import com.copytrading.leaderboard.copytrading.model.FilterType;
-import com.copytrading.leaderboard.copytrading.model.LeaderboardParams;
-import com.copytrading.leaderboard.copytrading.model.OrderSort;
-import com.copytrading.leaderboard.copytrading.model.TimeRange;
-import com.copytrading.leaderboard.copytrading.model.response.leaderboard.CopyTradingLeaderboard;
-import com.copytrading.leaderboard.copytrading.model.response.leaderboard.TraderInfo;
-import com.copytrading.leaderboard.copytrading.model.response.positions.active.PositionData;
-import org.json.JSONObject;
+import com.copytrading.copytradingleaderboard.model.FilterType;
+import com.copytrading.copytradingleaderboard.model.LeaderboardParams;
+import com.copytrading.copytradingleaderboard.model.OrderSort;
+import com.copytrading.copytradingleaderboard.model.TimeRange;
+import com.copytrading.copytradingleaderboard.model.response.leaderboard.CopyTradingLeaderboard;
+import com.copytrading.copytradingleaderboard.model.response.leaderboard.TraderInfo;
+import com.copytrading.copytradingleaderboard.model.response.positions.active.PositionData;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -16,7 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 
 import static com.copytrading.connector.config.BinanceConfig.testClient;
-import static com.copytrading.leaderboard.copytrading.CopyLeaderboardScrapper.*;
+import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.*;
 import static com.copytrading.service.OrderConverter.convertOrderParams;
 
 public class BinanceConnectorWorkTest {

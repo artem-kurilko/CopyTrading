@@ -2,17 +2,17 @@ package com.copytrading.connector.utils;
 
 import com.copytrading.connector.model.OrderType;
 import com.copytrading.connector.model.TimeInForce;
-import com.copytrading.leaderboard.copytrading.model.FilterType;
-import com.copytrading.leaderboard.copytrading.model.TimeRange;
-import com.copytrading.leaderboard.copytrading.model.response.leaderboard.CopyTradingLeaderboard;
-import com.copytrading.leaderboard.copytrading.model.response.leaderboard.TraderInfo;
-import com.copytrading.leaderboard.copytrading.model.response.positions.active.PositionData;
+import com.copytrading.copytradingleaderboard.model.FilterType;
+import com.copytrading.copytradingleaderboard.model.TimeRange;
+import com.copytrading.copytradingleaderboard.model.response.leaderboard.CopyTradingLeaderboard;
+import com.copytrading.copytradingleaderboard.model.response.leaderboard.TraderInfo;
+import com.copytrading.copytradingleaderboard.model.response.positions.active.PositionData;
 
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
 
-import static com.copytrading.leaderboard.copytrading.CopyLeaderboardScrapper.*;
+import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.*;
 
 public class TestData {
 

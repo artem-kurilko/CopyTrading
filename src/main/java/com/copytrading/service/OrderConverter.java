@@ -3,7 +3,7 @@ package com.copytrading.service;
 import com.copytrading.connector.BinanceConnector;
 import com.copytrading.connector.model.OrderType;
 import com.copytrading.connector.model.TimeInForce;
-import com.copytrading.leaderboard.copytrading.model.response.positions.active.PositionData;
+import com.copytrading.copytradingleaderboard.model.response.positions.active.PositionData;
 import org.json.JSONArray;
 import org.json.JSONObject;
 

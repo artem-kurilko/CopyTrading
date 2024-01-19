@@ -1,6 +1,6 @@
 package com.copytrading.service;
 
-import com.copytrading.leaderboard.copytrading.model.response.positions.active.PositionData;
+import com.copytrading.copytradingleaderboard.model.response.positions.active.PositionData;
 import com.mongodb.MongoClient;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
