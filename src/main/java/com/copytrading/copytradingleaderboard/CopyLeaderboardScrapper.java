@@ -1,6 +1,6 @@
 package com.copytrading.copytradingleaderboard;
 
-import com.copytrading.copytradingleaderboard.model.*;
+import com.copytrading.copytradingleaderboard.model.request.*;
 import com.copytrading.copytradingleaderboard.model.response.ResponseEntity;
 import com.copytrading.copytradingleaderboard.model.response.details.TraderDetails;
 import com.copytrading.copytradingleaderboard.model.response.leaderboard.CopyTradingLeaderboard;
@@ -120,6 +120,10 @@ public class CopyLeaderboardScrapper {
     private static <E extends ResponseEntity> void checkResponseStatus(E response) {
         if (!response.isSuccess())
             throw new RuntimeException("Exception while sending request. " + response);
+    }
+
+    public static String getLink(String traderId) {
+        return "https://www.binance.com/uk-UA/copy-trading/lead-details/" + traderId + "?timeRange=30D";
     }
 
     private static CopyLeaderboardAPI getCopyLeaderboardClient() {

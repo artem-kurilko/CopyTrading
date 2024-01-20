@@ -1,7 +1,7 @@
 package com.copytrading.copytradingleaderboard;
 
-import com.copytrading.copytradingleaderboard.model.LeaderboardParams;
-import com.copytrading.copytradingleaderboard.model.PositionHistoryParams;
+import com.copytrading.copytradingleaderboard.model.request.LeaderboardParams;
+import com.copytrading.copytradingleaderboard.model.request.PositionHistoryParams;
 import com.copytrading.copytradingleaderboard.model.response.details.TraderDetails;
 import com.copytrading.copytradingleaderboard.model.response.leaderboard.CopyTradingLeaderboard;
 import com.copytrading.copytradingleaderboard.model.response.performance.TraderPerformance;

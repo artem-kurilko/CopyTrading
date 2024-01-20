@@ -17,7 +17,7 @@ import static java.lang.Double.parseDouble;
 import static java.lang.String.valueOf;
 
 /**
- * Java class is used to convert order's from one format to another to send api request.
+ * Java class is used to convert order's parameters from one format to another.
  */
 public class OrderConverter {
     public static HashMap<String, Integer> symbolTickSizeMap = getTickSizes();
@@ -37,7 +37,7 @@ public class OrderConverter {
         params.put("side", side);
         params.put("quantity", valueOf(quantity));
         params.put("price", valueOf(round(price, 3)));
-        params.put("type", OrderType.LIMIT.name());
+//        params.put("type", OrderType.MARKET.name());
         params.put("timeInForce", TimeInForce.GTC.name());
         return params;
     }
@@ -56,7 +56,7 @@ public class OrderConverter {
         } return roundValues;
     }
 
-    public static double round(double value, int places) {
+    private static double round(double value, int places) {
         long factor = (long) Math.pow(10, places);
         value = value * factor;
         long tmp = Math.round(value);

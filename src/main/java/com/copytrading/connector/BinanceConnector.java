@@ -2,29 +2,30 @@ package com.copytrading.connector;
 
 import com.binance.connector.futures.client.impl.UMFuturesClientImpl;
 import com.copytrading.connector.model.MarginType;
+import com.copytrading.connector.model.OrderDto;
+import com.google.gson.Gson;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Objects;
 
 /**
  * Binance service connector.
  */
 public class BinanceConnector {
+    private static final Gson gson = new Gson();
     private final UMFuturesClientImpl client;
 
     public BinanceConnector(UMFuturesClientImpl client) {
         this.client = client;
     }
 
-    public String placeOrder(LinkedHashMap<String, Object> parameters) {
+    public OrderDto placeOrder(LinkedHashMap<String, Object> parameters) {
         String response = client.account().newOrder(parameters);
-        return new JSONObject(response).toString(2);
-    }
-
-    public static void main(String[] args) {
-
+        return gson.fromJson(response, OrderDto.class);
     }
 
     public String exchangeInfo() {
@@ -44,6 +45,14 @@ public class BinanceConnector {
         return new JSONArray(response).toString(2);
     }
 
+    public OrderDto getOrder(String symbol, String orderId) {
+        LinkedHashMap<String, Object> params = new LinkedHashMap<>();
+        params.put("symbol", symbol);
+        params.put("orderId", orderId);
+        String response = client.account().queryOrder(params);
+        return gson.fromJson(response, OrderDto.class);
+    }
+
     /**
      * Returns info with current symbol's leverage
      * @param symbol currency pair
@@ -56,12 +65,12 @@ public class BinanceConnector {
         return new JSONArray(response).toString(2);
     }
 
-    public String cancelOrder(String symbol, String orderId) {
+    public OrderDto cancelOrder(String symbol, String orderId) {
         LinkedHashMap<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("symbol", symbol);
         parameters.put("orderId", orderId);
         String result = client.account().cancelOrder(parameters);
-        return new JSONObject(result).toString(2);
+        return gson.fromJson(result, OrderDto.class);
     }
 
     public String cancelAll(String symbol) {
@@ -71,17 +80,17 @@ public class BinanceConnector {
         return new JSONObject(result).toString(2);
     }
 
-    public String openOrders() {
+    public List<OrderDto> openOrders() {
         LinkedHashMap<String, Object> parameters = new LinkedHashMap<>();
         String result = client.account().currentAllOpenOrders(parameters);
-        return new JSONArray(result).toString(2);
+        return Arrays.asList(gson.fromJson(result, OrderDto[].class));
     }
 
-    public String allOrders(String symbol) {
+    public List<OrderDto> allOrders(String symbol) {
         LinkedHashMap<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("symbol", symbol);
         String result = client.account().allOrders(parameters);
-        return new JSONArray(result).toString(2);
+        return Arrays.asList(gson.fromJson(result, OrderDto[].class));
     }
 
     public String changeLeverage(String symbol, int leverage) {

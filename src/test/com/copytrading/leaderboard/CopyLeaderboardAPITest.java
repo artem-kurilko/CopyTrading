@@ -1,6 +1,8 @@
 package com.copytrading.leaderboard;
 
-import com.copytrading.copytradingleaderboard.model.*;
+import com.copytrading.copytradingleaderboard.model.request.FilterType;
+import com.copytrading.copytradingleaderboard.model.request.PositionHistoryParams;
+import com.copytrading.copytradingleaderboard.model.request.TimeRange;
 import com.copytrading.copytradingleaderboard.model.response.details.TraderData;
 import com.copytrading.copytradingleaderboard.model.response.leaderboard.CopyTradingLeaderboard;
 import com.copytrading.copytradingleaderboard.model.response.leaderboard.TraderInfo;

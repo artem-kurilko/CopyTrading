@@ -2,8 +2,8 @@ package com.copytrading.connector.utils;
 
 import com.copytrading.connector.model.OrderType;
 import com.copytrading.connector.model.TimeInForce;
-import com.copytrading.copytradingleaderboard.model.FilterType;
-import com.copytrading.copytradingleaderboard.model.TimeRange;
+import com.copytrading.copytradingleaderboard.model.request.FilterType;
+import com.copytrading.copytradingleaderboard.model.request.TimeRange;
 import com.copytrading.copytradingleaderboard.model.response.leaderboard.CopyTradingLeaderboard;
 import com.copytrading.copytradingleaderboard.model.response.leaderboard.TraderInfo;
 import com.copytrading.copytradingleaderboard.model.response.positions.active.PositionData;
