@@ -21,7 +21,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.copytrading.connector.config.BinanceConfig.testClient;
-import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.*;
+import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.activePositions;
+import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.getTradersIds;
 import static com.copytrading.model.BaseAsset.USDT;
 import static com.copytrading.model.OrderStatus.checkIfOrderIsActive;
 import static com.copytrading.service.OrderConverter.convertOrderParams;
@@ -64,7 +65,7 @@ public class CopyTradingApplication {
     }
 
     /**
-     * Initialized balance evenly divided between {@link partitions} size traders.
+     * Initialized balance evenly divided between {@link CopyTradingApplication#partitions} size traders.
      * @param tradersIds lead trader portfolio id (necessary to have show positions true)
      * @param baseAsset asset balance
      * @return hashmap of trader's id and balance to make trades.
