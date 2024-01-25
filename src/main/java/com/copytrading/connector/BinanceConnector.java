@@ -1,8 +1,10 @@
 package com.copytrading.connector;
 
 import com.binance.connector.futures.client.impl.UMFuturesClientImpl;
+import com.copytrading.connector.model.BalanceDto;
 import com.copytrading.connector.model.MarginType;
 import com.copytrading.connector.model.OrderDto;
+import com.copytrading.connector.model.PositionDto;
 import com.google.gson.Gson;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -11,6 +13,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Binance service connector.
@@ -33,16 +36,16 @@ public class BinanceConnector {
         return new JSONObject(result).toString(2);
     }
 
-    public String positionInfo() {
+    public List<PositionDto> positionInfo() {
         LinkedHashMap<String, Object> parameters = new LinkedHashMap<>();
         String result = client.account().positionInformation(parameters);
-        return new JSONArray(result).toString(2);
+        return Arrays.stream(gson.fromJson(result, PositionDto[].class)).filter(position -> position.getEntryPrice() != 0).collect(Collectors.toList());
     }
 
-    public String balance() {
+    public List<BalanceDto> balance() {
         LinkedHashMap<String, Object> parameters = new LinkedHashMap<>();
         String response = client.account().futuresAccountBalance(parameters);
-        return new JSONArray(response).toString(2);
+        return Arrays.stream(gson.fromJson(response, BalanceDto[].class)).filter(balance -> balance.getBalance() != 0).collect(Collectors.toList());
     }
 
     public OrderDto getOrder(String symbol, String orderId) {

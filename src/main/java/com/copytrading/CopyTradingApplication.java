@@ -2,6 +2,8 @@ package com.copytrading;
 
 import com.copytrading.connector.BinanceConnector;
 import com.copytrading.connector.model.OrderDto;
+import com.copytrading.connector.model.OrderSide;
+import com.copytrading.connector.model.PositionDto;
 import com.copytrading.copytradingleaderboard.model.request.FilterType;
 import com.copytrading.copytradingleaderboard.model.request.TimeRange;
 import com.copytrading.copytradingleaderboard.model.response.positions.active.PositionData;
@@ -21,6 +23,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.copytrading.connector.config.BinanceConfig.testClient;
+import static com.copytrading.connector.utils.OrderDataUtils.getMarketParams;
+import static com.copytrading.connector.utils.OrderDataUtils.getPositionSide;
 import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.activePositions;
 import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.getTradersIds;
 import static com.copytrading.model.BaseAsset.USDT;
@@ -87,9 +91,8 @@ public class CopyTradingApplication {
 
     @SneakyThrows
     public static void main(String[] args) {
-//        List<String> ids = getTradersIds(partitions, TimeRange.D30, FilterType.COPIER_PNL);
-//        ids.forEach(x -> System.out.println(getLink(x)));
-        System.out.println(client.getOrder("BTCUSDT", "3657187352"));
+        // {"code":-4131,"msg":"The counterparty's best price does not meet the PERCENT_PRICE filter limit."}
+        executeOrder(null, null);
     }
 
     /**
@@ -112,10 +115,11 @@ public class CopyTradingApplication {
         List<PositionData> positions = activePositions(id).getData();
         positions.forEach(position -> {
             if (storage.stream().noneMatch(order -> order.getSymbol().equals(position.getSymbol()))) {
-                double budget = balance.get(id);
-                if (budget != 0)
+                double traderBalance = balance.get(id);
+                if (traderBalance != 0) {
+                    double budget = storage.size() <= 1 ? traderBalance / 3 : traderBalance * 0.5;
                     emulateOrder(id, position, budget);
-                else
+                } else
                     log.info("Insufficient balance. Trader {} Order symbol {}", id, position.getSymbol());
             }
         });
@@ -129,7 +133,12 @@ public class CopyTradingApplication {
     }
 
     private static void executeOrder(String id, OrderDto orderDto) {
-        client.positionInfo();
+//        PositionDto positionDto = client.positionInfo().stream().filter(position -> position.getSymbol().equals(orderDto.getSymbol())).findFirst().get();
+
+
+        OrderDto response = client.placeOrder(getMarketParams("APTUSDT", "SELL", String.valueOf(22)));
+        System.out.println(new JSONObject(response).toString(2));
+        System.out.println(client.positionInfo().size());
     }
 
     /**
