@@ -14,4 +14,5 @@ public enum OrderStatus {
     public static boolean checkIfOrderIsActive(OrderDto orderDto) {
         return orderDto.getStatus().equals(NEW.name()) || orderDto.getStatus().equals(PARTIALLY_FILLED.name());
     }
+
 }

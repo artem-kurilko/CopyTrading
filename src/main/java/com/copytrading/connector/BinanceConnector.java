@@ -9,10 +9,7 @@ import com.google.gson.Gson;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -45,7 +42,25 @@ public class BinanceConnector {
     public List<BalanceDto> balance() {
         LinkedHashMap<String, Object> parameters = new LinkedHashMap<>();
         String response = client.account().futuresAccountBalance(parameters);
-        return Arrays.stream(gson.fromJson(response, BalanceDto[].class)).filter(balance -> balance.getBalance() != 0).collect(Collectors.toList());
+        return Arrays.stream(gson.fromJson(response, BalanceDto[].class)).collect(Collectors.toList());
+    }
+
+    /**
+     * Gets collateral balance, for example from symbol BTCUSDT it gives USDT balance, from ETHBUSD -> BUSD
+     * @param symbol currency pair
+     * @return {@link BalanceDto} instance
+     */
+    public BalanceDto getCollateralBalanceOfSymbol(String symbol) {
+        List<BalanceDto> balanceList = balance();
+        for (int i = 0; i < symbol.length(); i++) {
+            int finalI = i;
+            Optional<BalanceDto> balanceDto = balanceList.stream()
+                    .filter(balance -> balance.getAsset().equals(symbol.substring(finalI))).findFirst();
+            if (balanceDto.isPresent())  {
+                return balanceDto.get();
+            }
+        }
+        throw new IllegalArgumentException("Exception in getCollateralBalanceOfSymbol. Not found balance for symbol " + symbol);
     }
 
     public OrderDto getOrder(String symbol, String orderId) {

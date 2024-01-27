@@ -1,8 +1,6 @@
 package com.copytrading.connector.utils;
 
-import com.copytrading.connector.model.OrderSide;
 import com.copytrading.connector.model.OrderType;
-import com.copytrading.connector.model.PositionDto;
 import com.copytrading.connector.model.TimeInForce;
 
 import java.util.LinkedHashMap;
@@ -27,16 +25,6 @@ public class OrderDataUtils {
         params.put("type", orderType.name());
         params.put("timeInForce", TimeInForce.GTC.name());
         return params;
-    }
-
-    public static OrderSide getPositionSide(PositionDto positionDto) {
-        double entry = positionDto.getEntryPrice();
-        double mark = positionDto.getMarkPrice();
-        double unrealized = positionDto.getUnRealizedProfit();
-        if ((mark > entry && unrealized > 0) || (mark < entry && unrealized < 0))
-            return OrderSide.BUY;
-        else
-            return OrderSide.SELL;
     }
 
 }
