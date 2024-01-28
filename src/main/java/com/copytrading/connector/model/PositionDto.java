@@ -1,6 +1,5 @@
 package com.copytrading.connector.model;
 
-import com.copytrading.copytradingleaderboard.model.response.positions.history.PositionSide;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Builder;
 import lombok.Data;

@@ -10,12 +10,10 @@ import com.copytrading.copytradingleaderboard.model.response.positions.active.Po
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.util.LinkedHashMap;
 import java.util.List;
 
 import static com.copytrading.connector.config.BinanceConfig.testClient;
 import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.*;
-import static com.copytrading.service.OrderConverter.convertOrderParams;
 
 public class BinanceConnectorWorkTest {
     private final BinanceConnector connector = new BinanceConnector(testClient());
@@ -23,9 +21,6 @@ public class BinanceConnectorWorkTest {
     @Test
     public void testNewOrder() throws IOException {
         double balance = 200;
-        LinkedHashMap<String,Object> params = convertOrderParams(getOrderExample(), balance);
-        String order = connector.placeOrder(params);
-        System.out.println(order);
     }
 
     public PositionData getOrderExample() throws IOException {

@@ -12,7 +12,6 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 import java.io.IOException;
 
-//TODO: look trade type perpetual, options and what are the difference
 public class FuturesLeaderboardScrapper {
     private static final FuturesLeaderboardAPI client = getFuturesLeaderboardClient();
 

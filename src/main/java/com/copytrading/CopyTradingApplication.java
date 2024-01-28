@@ -1,7 +1,9 @@
 package com.copytrading;
 
 import com.copytrading.connector.BinanceConnector;
+import com.copytrading.connector.model.BalanceDto;
 import com.copytrading.connector.model.OrderDto;
+import com.copytrading.connector.model.PositionDto;
 import com.copytrading.copytradingleaderboard.model.request.FilterType;
 import com.copytrading.copytradingleaderboard.model.request.TimeRange;
 import com.copytrading.copytradingleaderboard.model.response.positions.active.PositionData;
@@ -12,29 +14,25 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.copytrading.connector.config.BinanceConfig.testClient;
+import static com.copytrading.connector.model.OrderSide.getOppositeSide;
+import static com.copytrading.connector.model.OrderSide.getPositionSide;
+import static com.copytrading.connector.utils.OrderDataUtils.getMarketParams;
 import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.*;
 import static com.copytrading.model.BaseAsset.USDT;
 import static com.copytrading.util.ConfigUtils.PARSE_POSITIONS_DELAY;
+import static java.lang.Double.parseDouble;
+import static java.lang.String.valueOf;
 
 /**
  * Entry point of application.
  * @author Kurilko Artemii
  * @version 1.0.0
- */
-
-/**
- * TODO:
- *  - копирование напрямую с лидерборда плохо, потому что открытые позиции не у топ трейдеров, например пнл 1го открытого 180 000, пнл 1го закрытого 1 200 000
- *  - протестироваь трейдеров за разный отрезок времени и может ещё по roi и pnl смотреть
  */
 @Slf4j
 public class CopyTradingApplication {
@@ -43,8 +41,8 @@ public class CopyTradingApplication {
     private static HashMap<String, Double> balance = new HashMap<>(); // available balance for copying each trader
     private static final HashMap<String, List<OrderDto>> ordersStorage = new HashMap<>(); // stores trader id and copied active orders
 
-    public static void mafin(String[] args) throws IOException {
-        System.out.println("Running... " + new Date());
+    public static void main(String[] args) throws IOException {
+        log.info("Started application... ");
         List<String> ids = getTradersIds(partitions, TimeRange.D30, FilterType.COPIER_PNL);
         log.info("Selected traders {}", ids);
         balance = initBalance(ids, USDT);
@@ -84,18 +82,6 @@ public class CopyTradingApplication {
         throw new RuntimeException("INIT BALANCE EXCEPTION. Traders ids: " + tradersIds + "\nBalance: " + client.balance());
     }
 
-    @SneakyThrows
-    public static void main(String[] args) {
-        List<String> ids = getTradersIds(partitions, TimeRange.D30, FilterType.COPIER_PNL);
-        balance = initBalance(ids, USDT);
-        ordersStorage.put(ids.get(0), List.of(OrderDto.builder()
-                        .symbol("BTCUSDT")
-                        .orderId("")
-                .build()));
-        System.out.println(getLink(ids.get(0)));
-        checkOrdersStatus(ids.get(0));
-    }
-
     /**
      * Checks storage orders, trader leaderboard orders, if he has new then copy.
      * @param id traders leaderboard id
@@ -103,48 +89,58 @@ public class CopyTradingApplication {
      */
     private static void checkOrdersStatus(String id) throws IOException {
         List<OrderDto> storage = new ArrayList<>(ordersStorage.get(id));
-        System.out.println(storage);
 
         if (storage.size() == 0) {
             emulateOrders(id);
             return;
         }
 
-        // check that storage active orders are still active in binance, if not remove from storage
+        // remove order from storage if there is no position with such symbol
         storage.removeIf(storageOrder -> !checkIfPositionExists(storageOrder.getSymbol()));
-        System.out.println("Storage after remove: " + storage);
 
         // check if all trader's orders are copied, if not emulate
         List<PositionData> positions = activePositions(id).getData();
         positions.forEach(position -> {
             if (storage.stream().noneMatch(storageOrder -> storageOrder.getSymbol().equals(position.getSymbol()))) {
-                System.out.println("Emulate: ");
-                //                emulateOrder(id, position);
+                emulateOrder(id, position);
             }
         });
-        System.out.println("After o");
+
         // check if trader executed one of orders then execute too
         storage.forEach(storageOrder -> {
             if (positions.stream().noneMatch(position -> position.getSymbol().equals(storageOrder.getSymbol()))) {
-                System.out.println("Execute");
-                //                executeOrder(id, storageOrder);
+                executeOrder(id, storageOrder.getSymbol());
             }
         });
-        System.out.println("After a");
     }
 
-    private static boolean checkIfPositionExists(String symbol) {
-        return client.positionInfo().stream().anyMatch(position -> position.getSymbol().equals(symbol));
-    }
+    private static void executeOrder(String id, String symbol) {
+        if (!checkIfPositionExists(symbol)) {
+            throw new RuntimeException("Execute order, position doesn't exist " + symbol);
+        }
+        BalanceDto balanceDto = client.getCollateralBalanceOfSymbol(symbol);
+        PositionDto positionDto = client.positionInfo(symbol);
+        LinkedHashMap<String, Object> params = getMarketParams(
+                symbol,
+                getOppositeSide(positionDto),
+                valueOf(Math.abs(positionDto.getPositionAmt()))
+        );
+        OrderDto response = client.placeOrder(params);
+        BalanceDto balanceDtoUpdate = client.getCollateralBalanceOfSymbol(symbol);
+        double rpl = balanceDtoUpdate.getAvailableBalance() - balanceDto.getAvailableBalance();
+        balance.put(id, balance.get(id) + rpl);
+        List<OrderDto> updatedOrders = ordersStorage.get(id);
 
-    private static void executeOrder(String id, OrderDto orderDto) {
-//        BalanceDto balanceDto = client.getCollateralBalanceOfSymbol(positionDto.getSymbol());
-//        LinkedHashMap<String, Object> params = getMarketParams(positionDto.getSymbol(), getOppositeSide(positionDto), valueOf(positionDto.getPositionAmt()));
-//        OrderDto response = client.placeOrder(params);
-//        BalanceDto balanceDtoUpdate = client.getCollateralBalanceOfSymbol(positionDto.getSymbol());
-//        double rpl = balanceDtoUpdate.getAvailableBalance() - balanceDto.getAvailableBalance();
-//        balance.put(id, balance.get(id) + rpl);
-//        log.info("Executed Symbol: {} RPL: {} Position {}", positionDto.getSymbol(), rpl, response);
+        if (ordersStorage.get(id) != null) {
+            updatedOrders.removeIf(order -> order.getSymbol().equals(symbol));
+            ordersStorage.put(id, updatedOrders);
+        }
+
+        if (checkIfPositionExists(symbol)) {
+            throw new RuntimeException("ExecuteOrder position still exists ID: " + id + " Symbol: " + symbol);
+        }
+
+        log.info("Executed Symbol: {} RPL: {} Position {}", positionDto.getSymbol(), rpl, response);
     }
 
     /**
@@ -167,22 +163,40 @@ public class CopyTradingApplication {
      * @param positionData position
      */
     private static void emulateOrder(String id, PositionData positionData) {
-        double traderBalance = balance.get(id);
-       /* if (traderBalance != 0) {
-            double budget = storage.size() <= 1 ? traderBalance / 3 : traderBalance * 0.5;
-            emulateOrder(id, position, budget);
-        } else
-            log.info("Insufficient balance. Trader {} Order symbol {}", id, position.getSymbol());
-*/
+        String symbol = positionData.getSymbol();
+        List<OrderDto> storageOrders = ordersStorage.get(id);
+        double availableBalance = balance.get(id);
 
-    /*    LinkedHashMap<String, Object> params = convertOrderParams(positionData, budget);
-        OrderDto newOrder = client.placeOrder(params);
-        List<OrderDto> updated = ordersStorage.get(id);
-        updated.add(newOrder);
-        ordersStorage.put(id, updated);
-        double balanceUpdated = balance.get(id) - budget;
-        balance.put(id, balanceUpdated);*/
-//        log.info("Emulated order. Trader id: {} Budget: {} Order: {}", id, budget, newOrder);
+        if (availableBalance == 0) {
+            log.info("Insufficient balance. Trader {} Position {}", id, positionData);
+            throw new IllegalArgumentException("Insufficient balance: " + availableBalance);
+        }
+
+        double budget = switch(storageOrders.size()) {
+            case 0 -> availableBalance / 4;
+            case 1 -> availableBalance / 3;
+            case 2 -> availableBalance / 2;
+            default -> availableBalance;
+        };
+
+        double amount = budget / parseDouble(positionData.getMarkPrice());
+        BalanceDto balanceDto = client.getCollateralBalanceOfSymbol(symbol);
+        LinkedHashMap<String, Object> params = getMarketParams(
+                symbol,
+                getPositionSide(positionData).name(),
+                Double.toString(amount)
+        );
+        OrderDto response = client.placeOrder(params);
+        storageOrders.add(response);
+        ordersStorage.put(id, storageOrders);
+        BalanceDto updatedBalanceDto = client.getCollateralBalanceOfSymbol(symbol);
+        double rpl = updatedBalanceDto.getAvailableBalance() - balanceDto.getAvailableBalance();
+        balance.put(id, balance.get(id) + rpl);
+        log.info("Emulated order. Trader id: {} Budget: {} Order: {}", id, budget, response);
+    }
+
+    private static boolean checkIfPositionExists(String symbol) {
+        return client.positionInfo().stream().anyMatch(position -> position.getSymbol().equals(symbol));
     }
 
 }

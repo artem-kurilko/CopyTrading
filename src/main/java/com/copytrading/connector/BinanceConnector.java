@@ -6,7 +6,6 @@ import com.copytrading.connector.model.MarginType;
 import com.copytrading.connector.model.OrderDto;
 import com.copytrading.connector.model.PositionDto;
 import com.google.gson.Gson;
-import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.*;
@@ -39,10 +38,18 @@ public class BinanceConnector {
         return Arrays.stream(gson.fromJson(result, PositionDto[].class)).filter(position -> position.getEntryPrice() != 0).collect(Collectors.toList());
     }
 
+    public PositionDto positionInfo(String symbol) {
+        return positionInfo().stream().filter(position -> position.getSymbol().equals(symbol)).findFirst().orElseThrow(() -> new IllegalArgumentException("Method positionInfo, position with symbol " + symbol + " not found."));
+    }
+
     public List<BalanceDto> balance() {
         LinkedHashMap<String, Object> parameters = new LinkedHashMap<>();
         String response = client.account().futuresAccountBalance(parameters);
         return Arrays.stream(gson.fromJson(response, BalanceDto[].class)).collect(Collectors.toList());
+    }
+
+    public BalanceDto balance(String symbol) {
+        return balance().stream().filter(balance -> balance.getAsset().equals(symbol)).findFirst().orElseThrow(() -> new IllegalArgumentException("Get balance, symbol not found " + symbol));
     }
 
     /**
@@ -71,16 +78,12 @@ public class BinanceConnector {
         return gson.fromJson(response, OrderDto.class);
     }
 
-    /**
-     * Returns info with current symbol's leverage
-     * @param symbol currency pair
-     * @return string value
-     */
-    public String leverage(String symbol) {
+    public String setLeverage(String symbol, int leverage) {
         LinkedHashMap<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("symbol", symbol);
-        String response = client.account().positionInformation(parameters);
-        return new JSONArray(response).toString(2);
+        parameters.put("leverage", leverage);
+        String response = client.account().changeInitialLeverage(parameters);
+        return new JSONObject(response).toString(2);
     }
 
     public OrderDto cancelOrder(String symbol, String orderId) {
