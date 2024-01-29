@@ -9,7 +9,7 @@ import com.copytrading.copytradingleaderboard.model.request.TimeRange;
 import com.copytrading.copytradingleaderboard.model.response.positions.active.PositionData;
 import com.copytrading.model.BaseAsset;
 import lombok.SneakyThrows;
-import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -18,33 +18,38 @@ import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.FileHandler;
+import java.util.logging.Formatter;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 
 import static com.copytrading.connector.config.BinanceConfig.testClient;
 import static com.copytrading.connector.model.OrderSide.getOppositeSide;
 import static com.copytrading.connector.model.OrderSide.getPositionSide;
 import static com.copytrading.connector.utils.OrderDataUtils.getMarketParams;
-import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.*;
+import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.activePositions;
+import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.getTradersIds;
 import static com.copytrading.model.BaseAsset.USDT;
 import static com.copytrading.util.ConfigUtils.PARSE_POSITIONS_DELAY;
 import static java.lang.Double.parseDouble;
-import static java.lang.String.valueOf;
 
 /**
  * Entry point of application.
  * @author Kurilko Artemii
  * @version 1.0.0
  */
-@Slf4j
 public class CopyTradingApplication {
     private static final BinanceConnector client = new BinanceConnector(testClient());
     private static final int partitions = 3; // amount of traders to follow and divide balance equally
     private static HashMap<String, Double> balance = new HashMap<>(); // available balance for copying each trader
     private static final HashMap<String, List<OrderDto>> ordersStorage = new HashMap<>(); // stores trader id and copied active orders
 
+    private static final Logger log = initLogger();
+
     public static void main(String[] args) throws IOException {
         log.info("Started application... ");
         List<String> ids = getTradersIds(partitions, TimeRange.D30, FilterType.COPIER_PNL);
-        log.info("Selected traders {}", ids);
+        log.info("Selected traders " + ids);
         balance = initBalance(ids, USDT);
 
         ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
@@ -55,6 +60,7 @@ public class CopyTradingApplication {
                             checkOrdersStatus(id);
                     } catch (Exception e) {
                         executorService.shutdown();
+                        log.info("=================================================\n");
                         e.printStackTrace();
                     }
                 }, 0, PARSE_POSITIONS_DELAY, TimeUnit.SECONDS);
@@ -75,7 +81,7 @@ public class CopyTradingApplication {
                 double available = currencyBalance.getDouble("availableBalance");
                 double partitionBalance = available / partitions;
                 tradersIds.forEach(id -> initializedBalance.put(id, partitionBalance));
-                log.info("Initialized balance {}", initializedBalance);
+                log.info("Initialized balance " + initializedBalance);
                 return initializedBalance;
             }
         }
@@ -88,12 +94,11 @@ public class CopyTradingApplication {
      * @throws IOException if exception occurs
      */
     private static void checkOrdersStatus(String id) throws IOException {
-        List<OrderDto> storage = new ArrayList<>(ordersStorage.get(id));
-
-        if (storage.size() == 0) {
+        if (ordersStorage.get(id) == null) {
             emulateOrders(id);
             return;
         }
+        List<OrderDto> storage = new ArrayList<>(ordersStorage.get(id));
 
         // remove order from storage if there is no position with such symbol
         storage.removeIf(storageOrder -> !checkIfPositionExists(storageOrder.getSymbol()));
@@ -123,15 +128,15 @@ public class CopyTradingApplication {
         LinkedHashMap<String, Object> params = getMarketParams(
                 symbol,
                 getOppositeSide(positionDto),
-                valueOf(Math.abs(positionDto.getPositionAmt()))
+                Math.abs(positionDto.getPositionAmt())
         );
         OrderDto response = client.placeOrder(params);
         BalanceDto balanceDtoUpdate = client.getCollateralBalanceOfSymbol(symbol);
         double rpl = balanceDtoUpdate.getAvailableBalance() - balanceDto.getAvailableBalance();
         balance.put(id, balance.get(id) + rpl);
-        List<OrderDto> updatedOrders = ordersStorage.get(id);
+        List<OrderDto> updatedOrders = new LinkedList<>(ordersStorage.get(id));
 
-        if (ordersStorage.get(id) != null) {
+        if (ordersStorage.get(id).size() != 0) {
             updatedOrders.removeIf(order -> order.getSymbol().equals(symbol));
             ordersStorage.put(id, updatedOrders);
         }
@@ -140,7 +145,7 @@ public class CopyTradingApplication {
             throw new RuntimeException("ExecuteOrder position still exists ID: " + id + " Symbol: " + symbol);
         }
 
-        log.info("Executed Symbol: {} RPL: {} Position {}", positionDto.getSymbol(), rpl, response);
+        log.info("Executed Symbol: " + positionDto.getSymbol() + " RPL: " + rpl + " Position " + response);
     }
 
     /**
@@ -166,25 +171,33 @@ public class CopyTradingApplication {
         String symbol = positionData.getSymbol();
         List<OrderDto> storageOrders = ordersStorage.get(id);
         double availableBalance = balance.get(id);
+        double budget;
 
         if (availableBalance == 0) {
-            log.info("Insufficient balance. Trader {} Position {}", id, positionData);
+            log.info("Insufficient balance. Trader " + id + " Position " + positionData);
             throw new IllegalArgumentException("Insufficient balance: " + availableBalance);
         }
 
-        double budget = switch(storageOrders.size()) {
-            case 0 -> availableBalance / 4;
-            case 1 -> availableBalance / 3;
-            case 2 -> availableBalance / 2;
-            default -> availableBalance;
-        };
+        if (storageOrders != null) {
+            budget = switch (storageOrders.size()) {
+                case 0 -> availableBalance / 4;
+                case 1 -> availableBalance / 3;
+                case 2 -> availableBalance / 2;
+                default -> availableBalance;
+            };
+            storageOrders = new LinkedList<>(ordersStorage.get(id));
+        } else {
+            budget = availableBalance / 4;
+            ordersStorage.put(id, Collections.emptyList());
+            storageOrders = new LinkedList<>(ordersStorage.get(id));
+        }
 
         double amount = budget / parseDouble(positionData.getMarkPrice());
         BalanceDto balanceDto = client.getCollateralBalanceOfSymbol(symbol);
         LinkedHashMap<String, Object> params = getMarketParams(
                 symbol,
                 getPositionSide(positionData).name(),
-                Double.toString(amount)
+                amount
         );
         OrderDto response = client.placeOrder(params);
         storageOrders.add(response);
@@ -192,11 +205,27 @@ public class CopyTradingApplication {
         BalanceDto updatedBalanceDto = client.getCollateralBalanceOfSymbol(symbol);
         double rpl = updatedBalanceDto.getAvailableBalance() - balanceDto.getAvailableBalance();
         balance.put(id, balance.get(id) + rpl);
-        log.info("Emulated order. Trader id: {} Budget: {} Order: {}", id, budget, response);
+        log.info("Emulated order. Trader id: " + id + " Budget: " + budget + " Order: " + response);
     }
 
     private static boolean checkIfPositionExists(String symbol) {
         return client.positionInfo().stream().anyMatch(position -> position.getSymbol().equals(symbol));
+    }
+
+    @SneakyThrows
+    private static Logger initLogger() {
+        Logger logger = Logger.getLogger("CopyTradingBot");
+        FileHandler fh = new FileHandler("server_log.txt", true);
+        fh.setFormatter(new Formatter() {
+            @NotNull
+            @Override
+            public String format(@NotNull LogRecord record) {
+                return String.format(new Date() + " "
+                        + record.getLevel() + " " + record.getMessage() + "\n");
+            }
+        });
+        logger.addHandler(fh);
+        return logger;
     }
 
 }

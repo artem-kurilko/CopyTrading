@@ -6,4 +6,5 @@ logs/
 *.iml
 *.csv
 *.log
+*.txt
 application.properties
