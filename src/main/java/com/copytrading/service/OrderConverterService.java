@@ -1,4 +1,4 @@
-package com.copytrading.connector.utils;
+package com.copytrading.service;
 
 import com.copytrading.connector.BinanceConnector;
 import com.copytrading.connector.model.OrderType;
@@ -11,7 +11,7 @@ import java.util.LinkedHashMap;
 
 import static com.copytrading.connector.config.BinanceConfig.futuresClient;
 
-public class OrderDataUtils {
+public class OrderConverterService {
     private static final HashMap<String, Integer> symbolTickSizeMap = getTickSizes();
 
     public static LinkedHashMap<String, Object> getMarketParams(String symbol, String side, double amount) {

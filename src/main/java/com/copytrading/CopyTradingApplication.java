@@ -26,7 +26,7 @@ import java.util.logging.Logger;
 import static com.copytrading.connector.config.BinanceConfig.testClient;
 import static com.copytrading.connector.model.OrderSide.getOppositeSide;
 import static com.copytrading.connector.model.OrderSide.getPositionSide;
-import static com.copytrading.connector.utils.OrderDataUtils.getMarketParams;
+import static com.copytrading.service.OrderConverterService.getMarketParams;
 import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.activePositions;
 import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.getTradersIds;
 import static com.copytrading.model.BaseAsset.USDT;
