@@ -14,7 +14,7 @@ import static com.copytrading.connector.config.BinanceConfig.futuresClient;
 public class OrderConverterService {
     private static final HashMap<String, Integer> symbolTickSizeMap = getTickSizes();
 
-    public static LinkedHashMap<String, Object> getMarketParams(String symbol, String side, double amount) {
+    public static LinkedHashMap<String, Object> getMarketOrderParams(String symbol, String side, double amount) {
         int symbolPrecision = symbolTickSizeMap.get(symbol);
         double quantity = round(amount, symbolPrecision);
 
@@ -26,7 +26,7 @@ public class OrderConverterService {
         return params;
     }
 
-    public static LinkedHashMap<String, Object> getParams(String symbol, String side, double amount, String price, OrderType orderType) {
+    public static LinkedHashMap<String, Object> getOrderParams(String symbol, String side, double amount, String price, OrderType orderType) {
         int symbolPrecision = symbolTickSizeMap.get(symbol);
         double quantity = round(amount, symbolPrecision);
 
@@ -38,13 +38,6 @@ public class OrderConverterService {
         params.put("type", orderType.name());
         params.put("timeInForce", TimeInForce.GTC.name());
         return params;
-    }
-
-    private static double round(double value, int places) {
-        long factor = (long) Math.pow(10, places);
-        value = value * factor;
-        long tmp = Math.round(value);
-        return (double) tmp / factor;
     }
 
     private static HashMap<String, Integer> getTickSizes() {
@@ -59,6 +52,13 @@ public class OrderConverterService {
             int round = asset.getInt("quantityPrecision");
             roundValues.put(symbol, round);
         } return roundValues;
+    }
+
+    private static double round(double value, int places) {
+        long factor = (long) Math.pow(10, places);
+        value = value * factor;
+        long tmp = Math.round(value);
+        return (double) tmp / factor;
     }
 
 }

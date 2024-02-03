@@ -26,7 +26,7 @@ import java.util.logging.Logger;
 import static com.copytrading.connector.config.BinanceConfig.testClient;
 import static com.copytrading.connector.model.OrderSide.getOppositeSide;
 import static com.copytrading.connector.model.OrderSide.getPositionSide;
-import static com.copytrading.service.OrderConverterService.getMarketParams;
+import static com.copytrading.service.OrderConverterService.getMarketOrderParams;
 import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.activePositions;
 import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.getTradersIds;
 import static com.copytrading.model.BaseAsset.USDT;
@@ -125,7 +125,7 @@ public class CopyTradingApplication {
         }
         BalanceDto balanceDto = client.getCollateralBalanceOfSymbol(symbol);
         PositionDto positionDto = client.positionInfo(symbol);
-        LinkedHashMap<String, Object> params = getMarketParams(
+        LinkedHashMap<String, Object> params = getMarketOrderParams(
                 symbol,
                 getOppositeSide(positionDto),
                 Math.abs(positionDto.getPositionAmt())
@@ -194,7 +194,7 @@ public class CopyTradingApplication {
 
         double amount = budget / parseDouble(positionData.getMarkPrice());
         BalanceDto balanceDto = client.getCollateralBalanceOfSymbol(symbol);
-        LinkedHashMap<String, Object> params = getMarketParams(
+        LinkedHashMap<String, Object> params = getMarketOrderParams(
                 symbol,
                 getPositionSide(positionData).name(),
                 amount

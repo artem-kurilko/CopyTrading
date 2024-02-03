@@ -1,15 +1,16 @@
 package com.copytrading.service;
 
-import com.copytrading.copytradingleaderboard.model.response.positions.active.PositionData;
+import com.copytrading.model.LeadTraderState;
+import com.copytrading.model.TradingState;
 import com.mongodb.MongoClient;
-import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import org.bson.Document;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 
 /**
@@ -19,60 +20,42 @@ import java.util.List;
  */
 public class MongoDBService {
     private static final String tradingInfoCollection = "TradingInfo";
+    private static final String documentKey = "AppState";
 
-    public static List<Document> getActiveOrders() {
-        List<Document> orders = new ArrayList<>();
-        try (MongoClient mongo = new MongoClient( "localhost" , 27017 )) {
-            MongoDatabase database = mongo.getDatabase("CopyTrading");
-            MongoCollection<Document> collection = database.getCollection(tradingInfoCollection);
-            FindIterable<Document> iterDoc = collection.find();
-
-            for (Document document : iterDoc) {
-                orders.add(document);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        } return orders;
+    public static TradingState getLastTradingState() {
+        TradingState tradingState = new TradingState();
+        List<LeadTraderState> leadTraderStateList = new LinkedList<>();
+        MongoCollection<Document> collection = getCollection();
+        Document document = collection.find().sort(new Document("_id", -1)).first();
+        JSONArray tradersStateArray = new JSONObject(document.toJson()).getJSONArray(documentKey);
+        for (int i = 0; i < tradersStateArray.length(); i++) {
+            JSONObject tradersStateObject = tradersStateArray.getJSONObject(i);
+            leadTraderStateList.add(new LeadTraderState(
+                    tradersStateObject.getString("traderId"),
+                    tradersStateObject.getDouble("balance")
+            ));
+        }
+        tradingState.setLeadTraderStates(leadTraderStateList);
+        return tradingState;
     }
 
-    public static void saveOrder(JSONObject jsonObject) {
-        try (MongoClient mongo = new MongoClient( "localhost" , 27017 )) {
-            MongoDatabase database = mongo.getDatabase("CopyTrading");
-            MongoCollection<Document> collection = database.getCollection(tradingInfoCollection);
-
+    public static void saveApplicationState(TradingState tradingState) {
+        try {
+            MongoCollection<Document> collection = getCollection();
+            List<Document> tradersState = new ArrayList<>();
+            tradingState.getLeadTraderStates().forEach(state -> tradersState.add(new Document().append("traderId", state.getTraderId()).append("balance", state.getBalance())));
             Document document = new Document();
-
-            Iterator<String> keys = jsonObject.keys();
-            while(keys.hasNext()) {
-                String key = keys.next();
-                if (jsonObject.get(key) instanceof JSONObject) {
-                    document.append(key, jsonObject.get(key));
-                }
-            }
-
-           /* Document document = new Document("title", "MongoDB")
-                    .append("id", 1)
-                    .append("symbol", "BTCUSDT")
-                    .append("likes", 100)
-                    .append("url", "http://www.tutorialspoint.com/mongodb/")
-                    .append("by", "tutorials point");*/
+            document.append(documentKey, tradersState);
             collection.insertOne(document);
-            System.out.println("Document inserted successfully");
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    public static void deleteOrder() {
-
-    }
-
-    public List<Document> getOrdersHistory() {
-        return null;
-    }
-
-    public PositionData convert(Document document) {
-        return null;
+    private static MongoCollection<Document> getCollection() {
+        MongoClient mongo = new MongoClient( "localhost" , 27017 );
+        MongoDatabase database = mongo.getDatabase("CopyTrading");
+        return database.getCollection(tradingInfoCollection);
     }
 
 }
