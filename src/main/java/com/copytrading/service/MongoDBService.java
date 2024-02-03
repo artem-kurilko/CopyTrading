@@ -10,6 +10,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -37,6 +38,16 @@ public class MongoDBService {
         }
         tradingState.setLeadTraderStates(leadTraderStateList);
         return tradingState;
+    }
+
+    public static void saveApplicationState(List<String> ids, HashMap<String, Double> balance) {
+        TradingState ts = new TradingState();
+        List<LeadTraderState> tradersStatesList = new LinkedList<>();
+        for (String id : ids) {
+            tradersStatesList.add(new LeadTraderState(id, balance.get(id)));
+        }
+        ts.setLeadTraderStates(tradersStatesList);
+        saveApplicationState(ts);
     }
 
     public static void saveApplicationState(TradingState tradingState) {

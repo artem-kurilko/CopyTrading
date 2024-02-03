@@ -148,6 +148,17 @@ public class CopyTradingApplication {
         log.info("Executed Symbol: " + positionDto.getSymbol() + " RPL: " + rpl + " Position " + response);
     }
 
+    private static void executeOrder(String symbol) {
+        PositionDto positionDto = client.positionInfo(symbol);
+        LinkedHashMap<String, Object> params = getMarketOrderParams(
+                symbol,
+                getOppositeSide(positionDto),
+                Math.abs(positionDto.getPositionAmt())
+        );
+        OrderDto response = client.placeOrder(params);
+        log.info("Executed Symbol: " + positionDto.getSymbol() + " Position " + response);
+    }
+
     /**
      * Emulate all trader's active orders.
      * @param id trader id
@@ -185,12 +196,11 @@ public class CopyTradingApplication {
                 case 2 -> availableBalance / 2;
                 default -> availableBalance;
             };
-            storageOrders = new LinkedList<>(ordersStorage.get(id));
         } else {
             budget = availableBalance / 4;
             ordersStorage.put(id, Collections.emptyList());
-            storageOrders = new LinkedList<>(ordersStorage.get(id));
         }
+        storageOrders = new LinkedList<>(ordersStorage.get(id));
 
         double amount = budget / parseDouble(positionData.getMarkPrice());
         BalanceDto balanceDto = client.getCollateralBalanceOfSymbol(symbol);
@@ -210,6 +220,23 @@ public class CopyTradingApplication {
 
     private static boolean checkIfPositionExists(String symbol) {
         return client.positionInfo().stream().anyMatch(position -> position.getSymbol().equals(symbol));
+    }
+
+    /**
+     * Checks that all active positions are in storage, if not then execute them as market.
+     */
+    private static void clearUnknownPositions() {
+        Set<String> storageSymbols = new HashSet<>();
+        for (String key : ordersStorage.keySet()) {
+            List<OrderDto> positions = ordersStorage.get(key);
+            positions.forEach(pos -> storageSymbols.add(pos.getSymbol()));
+        }
+        List<PositionDto> activePositions = client.positionInfo();
+        for (PositionDto order : activePositions) {
+            if (storageSymbols.stream().noneMatch(symbol -> symbol.equals(order.getSymbol()))) {
+                executeOrder(order.getSymbol());
+            }
+        }
     }
 
     @SneakyThrows
