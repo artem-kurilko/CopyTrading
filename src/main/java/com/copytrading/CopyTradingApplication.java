@@ -23,13 +23,13 @@ import java.util.logging.Formatter;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
-import static com.copytrading.connector.config.BinanceConfig.testClient;
+import static com.copytrading.connector.config.BinanceConfig.futuresClient;
 import static com.copytrading.connector.model.OrderSide.getOppositeSide;
 import static com.copytrading.connector.model.OrderSide.getPositionSide;
-import static com.copytrading.service.OrderConverterService.getMarketOrderParams;
 import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.activePositions;
 import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.getTradersIds;
 import static com.copytrading.model.BaseAsset.USDT;
+import static com.copytrading.service.OrderConverterService.getMarketOrderParams;
 import static com.copytrading.util.ConfigUtils.PARSE_POSITIONS_DELAY;
 import static java.lang.Double.parseDouble;
 
@@ -39,14 +39,14 @@ import static java.lang.Double.parseDouble;
  * @version 1.0.0
  */
 public class CopyTradingApplication {
-    private static final BinanceConnector client = new BinanceConnector(testClient());
+    private static final BinanceConnector client = new BinanceConnector(futuresClient());
     private static final int partitions = 3; // amount of traders to follow and divide balance equally
     private static HashMap<String, Double> balance = new HashMap<>(); // available balance for copying each trader
     private static final HashMap<String, List<OrderDto>> ordersStorage = new HashMap<>(); // stores trader id and copied active orders
 
-    private static final Logger log = initLogger();
+    public static final Logger log = initLogger();
 
-    public static void main(String[] args) throws IOException {
+    public static void mafin(String[] args) throws IOException {
         log.info("Started application... ");
         List<String> ids = getTradersIds(partitions, TimeRange.D30, FilterType.COPIER_PNL);
         log.info("Selected traders " + ids);
