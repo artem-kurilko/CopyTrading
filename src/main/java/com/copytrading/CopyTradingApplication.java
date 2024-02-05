@@ -24,8 +24,8 @@ import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
 import static com.copytrading.connector.config.BinanceConfig.futuresClient;
-import static com.copytrading.connector.model.OrderSide.getOppositeSide;
-import static com.copytrading.connector.model.OrderSide.getPositionSide;
+import static com.copytrading.model.OrderSide.getOppositeSide;
+import static com.copytrading.model.OrderSide.getPositionSide;
 import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.activePositions;
 import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.getTradersIds;
 import static com.copytrading.model.BaseAsset.USDT;

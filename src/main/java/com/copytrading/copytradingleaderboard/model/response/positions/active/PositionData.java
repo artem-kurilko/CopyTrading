@@ -1,5 +1,6 @@
 package com.copytrading.copytradingleaderboard.model.response.positions.active;
 
+import com.copytrading.model.PositionSide;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 
@@ -21,6 +22,6 @@ public class PositionData {
     private boolean isolated;
     private String isolatedWallet;
     private String adl;
-    private String positionSide;
+    private PositionSide positionSide;
     private String breakEvenPrice;
 }

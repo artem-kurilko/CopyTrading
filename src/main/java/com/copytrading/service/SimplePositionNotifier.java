@@ -17,8 +17,8 @@ import java.util.stream.Collectors;
 
 import static com.copytrading.CopyTradingApplication.log;
 import static com.copytrading.connector.config.BinanceConfig.futuresClient;
-import static com.copytrading.connector.model.OrderSide.getOppositeSide;
-import static com.copytrading.connector.model.OrderSide.getPositionSide;
+import static com.copytrading.model.OrderSide.getOppositeSide;
+import static com.copytrading.model.OrderSide.getPositionSide;
 import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.activePositions;
 import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.getTradersIds;
 import static com.copytrading.model.BaseAsset.USDT;
@@ -66,6 +66,7 @@ public class SimplePositionNotifier {
                 });
             }
         }
+        traderPositionMap.put("BTCUSDT", new PositionData());
 
         // check if there are positions to execute
         List<PositionDto> activePositions = client.positionInfo();
@@ -97,9 +98,21 @@ public class SimplePositionNotifier {
         // if balance is limited then start with ones where entry price closer to mark price
         if (availableBalance < positionsToEmulate.size() * FIXED_AMOUNT_PER_ORDER) {
             List<PositionData> sortedPositions = positionsToEmulate.stream().sorted((o1, o2) -> {
-                double o1Diff = Math.abs(1 - parseDouble(o1.getEntryPrice()) / parseDouble(o1.getMarkPrice()));
-                double o2Diff = Math.abs(1 - parseDouble(o2.getEntryPrice()) / parseDouble(o2.getMarkPrice()));
-                return Double.compare(o1Diff, o2Diff);
+                double o1Upl = parseDouble(o1.getUnrealizedProfit());
+                double o2Upl = parseDouble(o2.getUnrealizedProfit());
+                if (o1Upl < 0 && o2Upl > 0) {
+                    return 1;
+                } else if (o2Upl < 0 && o1Upl > 0) {
+                    return -1;
+                } else if (o1Upl < 0 && o2Upl < 0) {
+                    double o1Diff = Math.abs(1 - parseDouble(o1.getEntryPrice()) / parseDouble(o1.getMarkPrice()));
+                    double o2Diff = Math.abs(1 - parseDouble(o2.getEntryPrice()) / parseDouble(o2.getMarkPrice()));
+                    return Double.compare(o2Diff, o1Diff);
+                } else {
+                    double o1Diff = Math.abs(1 - parseDouble(o1.getEntryPrice()) / parseDouble(o1.getMarkPrice()));
+                    double o2Diff = Math.abs(1 - parseDouble(o2.getEntryPrice()) / parseDouble(o2.getMarkPrice()));
+                    return Double.compare(o1Diff, o2Diff);
+                }
             }).collect(Collectors.toList());
             for (PositionData positionData : sortedPositions) {
                 try {
