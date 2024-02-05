@@ -17,13 +17,12 @@ import java.util.stream.Collectors;
 
 import static com.copytrading.CopyTradingApplication.log;
 import static com.copytrading.connector.config.BinanceConfig.futuresClient;
-import static com.copytrading.model.OrderSide.getOppositeSide;
-import static com.copytrading.model.OrderSide.getPositionSide;
 import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.activePositions;
 import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.getTradersIds;
 import static com.copytrading.model.BaseAsset.USDT;
+import static com.copytrading.model.OrderSide.getOppositeSide;
+import static com.copytrading.model.OrderSide.getPositionSide;
 import static com.copytrading.service.OrderConverterService.getMarketOrderParams;
-import static com.copytrading.util.ConfigUtils.PARSE_POSITIONS_DELAY;
 import static java.lang.Double.parseDouble;
 
 /**
@@ -31,15 +30,17 @@ import static java.lang.Double.parseDouble;
  * This bot just iterate via copy traders orders and place position with fixed balance.
  *
  * @author Artemii Kurilko
- * @version 1.0
+ * @version 1.1
  */
 public class SimplePositionNotifier {
     private static final BinanceConnector client = new BinanceConnector(futuresClient());
-    private static final int FIXED_AMOUNT_PER_ORDER = 4;
+    private static final int FIXED_AMOUNT_PER_ORDER = 6; // margin per order (leverage not included)
+    private static final int partitions = 4;
+    public static final int delay = 20;
 
     @SneakyThrows
     public static void main(String[] args) {
-        List<String> ids = getTradersIds(3, TimeRange.D30, FilterType.COPIER_PNL);
+        List<String> ids = getTradersIds(partitions, TimeRange.D30, FilterType.COPIER_PNL);
 
         ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
         executorService
@@ -51,7 +52,7 @@ public class SimplePositionNotifier {
                         log.info("=================================================\n");
                         e.printStackTrace();
                     }
-                }, 0, PARSE_POSITIONS_DELAY, TimeUnit.SECONDS);
+                }, 0, delay, TimeUnit.SECONDS);
     }
 
     @SneakyThrows
@@ -66,7 +67,6 @@ public class SimplePositionNotifier {
                 });
             }
         }
-        traderPositionMap.put("BTCUSDT", new PositionData());
 
         // check if there are positions to execute
         List<PositionDto> activePositions = client.positionInfo();
@@ -118,9 +118,8 @@ public class SimplePositionNotifier {
                 try {
                     emulateOrder(positionData);
                 } catch (Exception e) {
-                    e.printStackTrace();
                     log.info("ERROR: " + e.getMessage());
-                    return;
+                    throw new RuntimeException(e);
                 }
             }
         } else {
@@ -129,7 +128,8 @@ public class SimplePositionNotifier {
     }
 
     private static void emulateOrder(PositionData positionData) {
-        double amount = (double) FIXED_AMOUNT_PER_ORDER / parseDouble(positionData.getMarkPrice());
+        int leverage = adjustLeverage(positionData);
+        double amount = FIXED_AMOUNT_PER_ORDER  * leverage / parseDouble(positionData.getMarkPrice());
         LinkedHashMap<String, Object> params = getMarketOrderParams(
                 positionData.getSymbol(),
                 getPositionSide(positionData).name(),
@@ -148,6 +148,16 @@ public class SimplePositionNotifier {
         );
         OrderDto response = client.placeOrder(params);
         log.info("Executed Symbol: " + positionDto.getSymbol() + " Position " + response);
+    }
+
+    private static int adjustLeverage(PositionData positionData) {
+        int initialLeverage = client.getLeverage(positionData.getSymbol());
+        if (positionData.getLeverage() != initialLeverage) {
+            client.setLeverage(positionData.getSymbol(), positionData.getLeverage());
+            return positionData.getLeverage();
+        } else {
+            return initialLeverage;
+        }
     }
 
 }

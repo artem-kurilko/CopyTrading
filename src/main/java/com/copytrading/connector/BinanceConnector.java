@@ -6,6 +6,7 @@ import com.copytrading.connector.model.MarginType;
 import com.copytrading.connector.model.OrderDto;
 import com.copytrading.connector.model.PositionDto;
 import com.google.gson.Gson;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.*;
@@ -86,6 +87,13 @@ public class BinanceConnector {
         return new JSONObject(response).toString(2);
     }
 
+    public int getLeverage(String symbol) {
+        LinkedHashMap<String, Object> parameters = new LinkedHashMap<>();
+        parameters.put("symbol", symbol);
+        String response = client.account().positionInformation(parameters);
+        return new JSONArray(response).getJSONObject(0).getInt("leverage");
+    }
+
     public OrderDto cancelOrder(String symbol, String orderId) {
         LinkedHashMap<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("symbol", symbol);
@@ -112,14 +120,6 @@ public class BinanceConnector {
         parameters.put("symbol", symbol);
         String result = client.account().allOrders(parameters);
         return Arrays.asList(gson.fromJson(result, OrderDto[].class));
-    }
-
-    public String changeLeverage(String symbol, int leverage) {
-        LinkedHashMap<String, Object> parameters = new LinkedHashMap<>();
-        parameters.put("symbol", symbol);
-        parameters.put("leverage", leverage);
-        String result = client.account().changeInitialLeverage(parameters);
-        return new JSONObject(result).toString(2);
     }
 
     public String changeMarginType(String symbol, MarginType type) {
