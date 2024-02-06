@@ -7,6 +7,7 @@ import com.copytrading.connector.model.PositionDto;
 import com.copytrading.copytradingleaderboard.model.request.FilterType;
 import com.copytrading.copytradingleaderboard.model.request.TimeRange;
 import com.copytrading.copytradingleaderboard.model.response.positions.active.PositionData;
+import com.copytrading.model.OrderSide;
 import lombok.SneakyThrows;
 
 import java.util.*;
@@ -20,8 +21,7 @@ import static com.copytrading.connector.config.BinanceConfig.futuresClient;
 import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.activePositions;
 import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.getTradersIds;
 import static com.copytrading.model.BaseAsset.USDT;
-import static com.copytrading.model.OrderSide.getOppositeSide;
-import static com.copytrading.model.OrderSide.getPositionSide;
+import static com.copytrading.model.OrderSide.*;
 import static com.copytrading.service.OrderConverterService.getMarketOrderParams;
 import static java.lang.Double.parseDouble;
 
@@ -128,6 +128,9 @@ public class SimplePositionNotifier {
     }
 
     private static void emulateOrder(PositionData positionData) {
+        if (isToLateToCopy(positionData)) {
+            return;
+        }
         int leverage = adjustLeverage(positionData);
         double amount = FIXED_AMOUNT_PER_ORDER  * leverage / parseDouble(positionData.getMarkPrice());
         LinkedHashMap<String, Object> params = getMarketOrderParams(
@@ -158,6 +161,23 @@ public class SimplePositionNotifier {
         } else {
             return initialLeverage;
         }
+    }
+
+    /**
+     * Checks that if we copy late and trader received >= 10% of profit than don't emulate position. =
+     * @return boolean value
+     */
+    private static boolean isToLateToCopy(PositionData positionData) {
+        OrderSide side = getPositionSide(positionData);
+        double entry = Double.parseDouble(positionData.getEntryPrice());
+        double mark = Double.parseDouble(positionData.getMarkPrice());
+        if (side.equals(BUY) && ((mark * 100 / entry) - 100) <= 10) {
+            return false;
+        }
+        if (side.equals(SELL) && (mark * 100 / entry) >= 90) {
+            return false;
+        }
+        return true;
     }
 
 }
