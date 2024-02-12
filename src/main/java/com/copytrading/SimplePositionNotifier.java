@@ -1,15 +1,16 @@
-package com.copytrading.service;
+package com.copytrading;
 
+import com.binance.connector.futures.client.exceptions.BinanceClientException;
 import com.copytrading.connector.BinanceConnector;
 import com.copytrading.connector.model.BalanceDto;
 import com.copytrading.connector.model.OrderDto;
 import com.copytrading.connector.model.PositionDto;
-import com.copytrading.copytradingleaderboard.model.request.FilterType;
-import com.copytrading.copytradingleaderboard.model.request.TimeRange;
 import com.copytrading.copytradingleaderboard.model.response.positions.active.PositionData;
 import com.copytrading.model.OrderSide;
 import lombok.SneakyThrows;
 
+import java.io.IOException;
+import java.net.SocketTimeoutException;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -19,7 +20,6 @@ import java.util.stream.Collectors;
 import static com.copytrading.CopyTradingApplication.log;
 import static com.copytrading.connector.config.BinanceConfig.futuresClient;
 import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.activePositions;
-import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.getTradersIds;
 import static com.copytrading.model.BaseAsset.USDT;
 import static com.copytrading.model.OrderSide.*;
 import static com.copytrading.service.OrderConverterService.getMarketOrderParams;
@@ -32,21 +32,34 @@ import static java.lang.Double.parseDouble;
  * @author Artemii Kurilko
  * @version 1.1
  */
+//TODO: - сделать суб аки, 90%-95% баланса проверенные трейдеры, остальное на тестирование других + другие параметры (roi, copy count)
 public class SimplePositionNotifier {
     private static final BinanceConnector client = new BinanceConnector(futuresClient());
-    private static final int FIXED_AMOUNT_PER_ORDER = 6; // margin per order (leverage not included)
-    private static final int partitions = 4;
-    public static final int delay = 20;
+    private static final int FIXED_AMOUNT_PER_ORDER = 5; // margin per order (leverage not included)
+    private static final int delay = 20;
+    private static final int SOCKET_RETRY_COUNT = 3;
+    private static final int maxProfitAllowed = 5; // max allowed profit (percentage) from lead trader position to emulate
+    private static final int DEFAULT_LEVERAGE = 10;
 
     @SneakyThrows
     public static void main(String[] args) {
-        List<String> ids = getTradersIds(partitions, TimeRange.D30, FilterType.COPIER_PNL);
+//        List<String> ids = getTradersIds(partitions, TimeRange.D30, FilterType.COPIER_PNL);
+        List<String> ids = List.of("3708884547500009217", "3753191121425897472", "3745161142246130945", "909110824361279489");
 
         ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
         executorService
                 .scheduleWithFixedDelay(() -> {
                     try {
-                        proceedTradersPositions(ids);
+                        for (int i = 1; i <= SOCKET_RETRY_COUNT; i++) {
+                            try {
+                                proceedTradersPositions(ids);
+                                System.out.println();
+                                return;
+                            } catch (SocketTimeoutException ex) {
+                                ex.printStackTrace();
+                                Thread.sleep(20000);
+                            }
+                        }
                     } catch (Exception e) {
                         executorService.shutdown();
                         log.info("=================================================\n");
@@ -55,8 +68,7 @@ public class SimplePositionNotifier {
                 }, 0, delay, TimeUnit.SECONDS);
     }
 
-    @SneakyThrows
-    private static void proceedTradersPositions(List<String> tradersIds) {
+    private static void proceedTradersPositions(List<String> tradersIds) throws IOException {
         // add all traders positions to map
         Map<String, PositionData> traderPositionMap = new HashMap<>();
         for (String id : tradersIds) {
@@ -116,10 +128,12 @@ public class SimplePositionNotifier {
             }).collect(Collectors.toList());
             for (PositionData positionData : sortedPositions) {
                 try {
-                    emulateOrder(positionData);
+                    if (client.balance(USDT.name()).getAvailableBalance() >= FIXED_AMOUNT_PER_ORDER) {
+                        emulateOrder(positionData);
+                    }
                 } catch (Exception e) {
                     log.info("ERROR: " + e.getMessage());
-                    throw new RuntimeException(e);
+                    e.printStackTrace();
                 }
             }
         } else {
@@ -138,8 +152,38 @@ public class SimplePositionNotifier {
                 getPositionSide(positionData).name(),
                 amount
         );
-        OrderDto response = client.placeOrder(params);
-        log.info("Emulated order. Order: " + response);
+        try {
+            OrderDto response = client.placeOrder(params);
+            log.info("Emulated order. Order: " + response);
+        } catch (BinanceClientException clientException) {
+            if (clientException.getMessage().contains("Order's notional must be no smaller")) {
+                log.info("Exception: " + clientException.getMessage());
+            } else {
+                throw clientException;
+            }
+        }
+    }
+
+    /**
+     * Sets leverage value for cryptocurrency pair the same as lead trader.
+     * If leverage is higher than {@link DEFAULT_LEVERAGE} than set to default.
+     * @param positionData position to emulate
+     * @return leverage value
+     */
+    private static int adjustLeverage(PositionData positionData) {
+        int initialLeverage = client.getLeverage(positionData.getSymbol());
+        int positionLeverage = positionData.getLeverage();
+        if (positionLeverage != initialLeverage) {
+            if (positionLeverage > DEFAULT_LEVERAGE) { // too high, reset to default value
+                client.setLeverage(positionData.getSymbol(), DEFAULT_LEVERAGE);
+                return DEFAULT_LEVERAGE;
+            } else {
+                client.setLeverage(positionData.getSymbol(), positionLeverage);
+                return positionLeverage;
+            }
+        } else {
+            return initialLeverage;
+        }
     }
 
     private static void executeOrder(String symbol) {
@@ -153,28 +197,20 @@ public class SimplePositionNotifier {
         log.info("Executed Symbol: " + positionDto.getSymbol() + " Position " + response);
     }
 
-    private static int adjustLeverage(PositionData positionData) {
-        int initialLeverage = client.getLeverage(positionData.getSymbol());
-        if (positionData.getLeverage() != initialLeverage) {
-            client.setLeverage(positionData.getSymbol(), positionData.getLeverage());
-            return positionData.getLeverage();
-        } else {
-            return initialLeverage;
-        }
-    }
-
     /**
-     * Checks that if we copy late and trader received >= 10% of profit than don't emulate position. =
+     * Validation before emulating position, if position already exists then don't emulate,
+     * Also checks that if we copy late and trader received >= 10% of profit than don't emulate position.
+     * @param positionData {@link PositionData} instance
      * @return boolean value
      */
     private static boolean isToLateToCopy(PositionData positionData) {
         OrderSide side = getPositionSide(positionData);
         double entry = Double.parseDouble(positionData.getEntryPrice());
         double mark = Double.parseDouble(positionData.getMarkPrice());
-        if (side.equals(BUY) && ((mark * 100 / entry) - 100) <= 10) {
+        if (side.equals(BUY) && ((mark * 100 / entry) - 100) <= maxProfitAllowed) {
             return false;
         }
-        if (side.equals(SELL) && (mark * 100 / entry) >= 90) {
+        if (side.equals(SELL) && (mark * 100 / entry) >= (100-maxProfitAllowed)) {
             return false;
         }
         return true;

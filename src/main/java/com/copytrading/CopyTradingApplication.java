@@ -34,10 +34,12 @@ import static com.copytrading.util.ConfigUtils.PARSE_POSITIONS_DELAY;
 import static java.lang.Double.parseDouble;
 
 /**
- * Entry point of application.
+ * Old version of copy trading bot.
+ * @deprecated
  * @author Kurilko Artemii
  * @version 1.0.0
  */
+@Deprecated
 public class CopyTradingApplication {
     private static final BinanceConnector client = new BinanceConnector(futuresClient());
     private static final int partitions = 3; // amount of traders to follow and divide balance equally
@@ -46,7 +48,8 @@ public class CopyTradingApplication {
 
     public static final Logger log = initLogger();
 
-    public static void mafin(String[] args) throws IOException {
+    @Deprecated
+    public static void main(String[] args) throws IOException {
         log.info("Started application... ");
         List<String> ids = getTradersIds(partitions, TimeRange.D30, FilterType.COPIER_PNL);
         log.info("Selected traders " + ids);

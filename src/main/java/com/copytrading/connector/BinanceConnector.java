@@ -33,6 +33,23 @@ public class BinanceConnector {
         return new JSONObject(result).toString(2);
     }
 
+    public Double getMinNotionalValue(String symbol) {
+        JSONArray symbols = new JSONObject(exchangeInfo()).getJSONArray("symbols");
+        for (int i = 0; i < symbol.length(); i++) {
+            JSONObject symbolInfo = symbols.getJSONObject(i);
+            if (symbolInfo.getString("symbol").equals(symbol)) {
+                JSONArray filters = symbolInfo.getJSONArray("filters");
+                for (int n = 0; n < filters.length(); n++) {
+                    JSONObject filter = filters.getJSONObject(n);
+                    if (filter.getString("filterType").equals("MIN_NOTIONAL")) {
+                        return filter.getDouble("notional");
+                    }
+                }
+            }
+        }
+        throw new IllegalArgumentException("Exception in getMinNotionalValue. Not found notional value for symbol " + symbol);
+    }
+
     public List<PositionDto> positionInfo() {
         LinkedHashMap<String, Object> parameters = new LinkedHashMap<>();
         String result = client.account().positionInformation(parameters);
@@ -79,12 +96,11 @@ public class BinanceConnector {
         return gson.fromJson(response, OrderDto.class);
     }
 
-    public String setLeverage(String symbol, int leverage) {
+    public void setLeverage(String symbol, int leverage) {
         LinkedHashMap<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("symbol", symbol);
         parameters.put("leverage", leverage);
-        String response = client.account().changeInitialLeverage(parameters);
-        return new JSONObject(response).toString(2);
+        client.account().changeInitialLeverage(parameters);
     }
 
     public int getLeverage(String symbol) {
