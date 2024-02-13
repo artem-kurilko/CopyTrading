@@ -35,7 +35,7 @@ import static java.lang.Double.parseDouble;
 //TODO: - сделать суб аки, 90%-95% баланса проверенные трейдеры, остальное на тестирование других + другие параметры (roi, copy count)
 public class SimplePositionNotifier {
     private static final BinanceConnector client = new BinanceConnector(futuresClient());
-    private static final int FIXED_AMOUNT_PER_ORDER = 5; // margin per order (leverage not included)
+    private static final int FIXED_AMOUNT_PER_ORDER = 6; // margin per order (leverage not included)
     private static final int delay = 20;
     private static final int SOCKET_RETRY_COUNT = 3;
     private static final int maxProfitAllowed = 5; // max allowed profit (percentage) from lead trader position to emulate
@@ -44,7 +44,7 @@ public class SimplePositionNotifier {
     @SneakyThrows
     public static void main(String[] args) {
 //        List<String> ids = getTradersIds(partitions, TimeRange.D30, FilterType.COPIER_PNL);
-        List<String> ids = List.of("3708884547500009217", "3753191121425897472", "3745161142246130945", "909110824361279489");
+        List<String> ids = List.of("3701555442111522817", "3708884547500009217", "3705565653582929153", "3745161142246130945", "909110824361279489");
 
         ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
         executorService
@@ -84,7 +84,7 @@ public class SimplePositionNotifier {
         List<PositionDto> activePositions = client.positionInfo();
         for (PositionDto positionDto : activePositions) {
             if (traderPositionMap.keySet().stream().noneMatch(symbol -> symbol.equals(positionDto.getSymbol()))) {
-                executeOrder(positionDto.getSymbol());
+                executeOrder(positionDto);
             }
         }
 
@@ -157,7 +157,7 @@ public class SimplePositionNotifier {
             log.info("Emulated order. Order: " + response);
         } catch (BinanceClientException clientException) {
             if (clientException.getMessage().contains("Order's notional must be no smaller")) {
-                log.info("Exception: " + clientException.getMessage());
+                log.info("Exception: Symbol: " + positionData.getSymbol() + " " + clientException.getMessage());
             } else {
                 throw clientException;
             }
@@ -174,7 +174,9 @@ public class SimplePositionNotifier {
         int initialLeverage = client.getLeverage(positionData.getSymbol());
         int positionLeverage = positionData.getLeverage();
         if (positionLeverage != initialLeverage) {
-            if (positionLeverage > DEFAULT_LEVERAGE) { // too high, reset to default value
+            if (initialLeverage == DEFAULT_LEVERAGE) {
+                return DEFAULT_LEVERAGE;
+            } else if (positionLeverage > DEFAULT_LEVERAGE) {
                 client.setLeverage(positionData.getSymbol(), DEFAULT_LEVERAGE);
                 return DEFAULT_LEVERAGE;
             } else {
@@ -182,19 +184,23 @@ public class SimplePositionNotifier {
                 return positionLeverage;
             }
         } else {
-            return initialLeverage;
+            if (initialLeverage > DEFAULT_LEVERAGE) {
+                client.setLeverage(positionData.getSymbol(), DEFAULT_LEVERAGE);
+                return DEFAULT_LEVERAGE;
+            } else {
+                return initialLeverage;
+            }
         }
     }
 
-    private static void executeOrder(String symbol) {
-        PositionDto positionDto = client.positionInfo(symbol);
+    private static void executeOrder(PositionDto positionDto) {
         LinkedHashMap<String, Object> params = getMarketOrderParams(
-                symbol,
+                positionDto.getSymbol(),
                 getOppositeSide(positionDto),
                 Math.abs(positionDto.getPositionAmt())
         );
         OrderDto response = client.placeOrder(params);
-        log.info("Executed Symbol: " + positionDto.getSymbol() + " Position " + response);
+        log.info("Executed Symbol: " + positionDto.getSymbol() + " UPL: " + positionDto.getUnRealizedProfit() + " Position " + response);
     }
 
     /**

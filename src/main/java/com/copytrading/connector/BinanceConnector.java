@@ -35,7 +35,7 @@ public class BinanceConnector {
 
     public Double getMinNotionalValue(String symbol) {
         JSONArray symbols = new JSONObject(exchangeInfo()).getJSONArray("symbols");
-        for (int i = 0; i < symbol.length(); i++) {
+        for (int i = 0; i < symbols.length(); i++) {
             JSONObject symbolInfo = symbols.getJSONObject(i);
             if (symbolInfo.getString("symbol").equals(symbol)) {
                 JSONArray filters = symbolInfo.getJSONArray("filters");
@@ -96,11 +96,12 @@ public class BinanceConnector {
         return gson.fromJson(response, OrderDto.class);
     }
 
-    public void setLeverage(String symbol, int leverage) {
+    public String setLeverage(String symbol, int leverage) {
         LinkedHashMap<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("symbol", symbol);
         parameters.put("leverage", leverage);
-        client.account().changeInitialLeverage(parameters);
+        String response = client.account().changeInitialLeverage(parameters);
+        return new JSONObject(response).toString(2);
     }
 
     public int getLeverage(String symbol) {

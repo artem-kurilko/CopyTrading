@@ -123,7 +123,7 @@ public class CopyLeaderboardScrapper {
     }
 
     public static String getLink(String traderId) {
-        return "https://www.binance.com/uk-UA/copy-trading/lead-details/" + traderId + "?timeRange=30D";
+        return "https://www.binance.com/uk-UA/copy-trading/lead-details/" + traderId + "?timeRange=90D";
     }
 
     private static CopyLeaderboardAPI getCopyLeaderboardClient() {
