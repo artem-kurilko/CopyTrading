@@ -19,8 +19,8 @@ public class TraderPositions extends ResponseEntity {
 
     @Override
     public String toString() {
-        TraderPositions positions =
-                new TraderPositions(super.getCode(), super.getMessage(), super.getMessageDetail(), data, super.isSuccess());
-        return new JSONObject(positions).toString(2);
+        return "TraderPositions{" +
+                "data=" + data +
+                '}';
     }
 }

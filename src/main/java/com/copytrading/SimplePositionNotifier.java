@@ -5,47 +5,70 @@ import com.copytrading.connector.BinanceConnector;
 import com.copytrading.connector.model.BalanceDto;
 import com.copytrading.connector.model.OrderDto;
 import com.copytrading.connector.model.PositionDto;
-import com.copytrading.copytradingleaderboard.model.response.positions.active.PositionData;
+import com.copytrading.futuresleaderboard.model.response.position.Position;
 import com.copytrading.model.OrderSide;
 import lombok.SneakyThrows;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
+import java.net.NoRouteToHostException;
 import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.FileHandler;
+import java.util.logging.Formatter;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-import static com.copytrading.CopyTradingApplication.log;
 import static com.copytrading.connector.config.BinanceConfig.futuresClient;
-import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.activePositions;
+import static com.copytrading.futuresleaderboard.FuturesLeaderboardScrapper.getTraderPositions;
 import static com.copytrading.model.BaseAsset.USDT;
 import static com.copytrading.model.OrderSide.*;
 import static com.copytrading.service.OrderConverterService.getMarketOrderParams;
-import static java.lang.Double.parseDouble;
 
 /**
  * Simple bot alternative.
  * This bot just iterate via copy traders orders and place position with fixed balance.
  *
  * @author Artemii Kurilko
- * @version 1.1
+ * @version 2.0
  */
-//TODO: - сделать суб аки, 90%-95% баланса проверенные трейдеры, остальное на тестирование других + другие параметры (roi, copy count)
+
+//TODO:
+// - добавить байбит тестнет
+// - добавить фильтрацию лид трейдеров (например mdd < 40, aum > 100k, pnl copy > 100k)
+// - сделать суб аки, 90%-95% баланса проверенные трейдеры, остальное на тестирование других + другие параметры (roi, copy count)
 public class SimplePositionNotifier {
     private static final BinanceConnector client = new BinanceConnector(futuresClient());
-    private static final int FIXED_AMOUNT_PER_ORDER = 6; // margin per order (leverage not included)
-    private static final int delay = 20;
-    private static final int SOCKET_RETRY_COUNT = 3;
-    private static final int maxProfitAllowed = 5; // max allowed profit (percentage) from lead trader position to emulate
+    private static final Logger log = initLogger();
+
+    // trade
+    private static final int FIXED_MARGIN_PER_ORDER;
+    private static final int maxNumberOfOrders = 10;
+    private static final int maxProfitAllowed = 3;
     private static final int DEFAULT_LEVERAGE = 10;
+
+    // sockets
+    private static final int SOCKET_RETRY_COUNT = 3;
+    private static final int delay = 20;
+
+    static {
+        BalanceDto balanceDto = client.balance(USDT.name());
+        double walletBalance = balanceDto.getBalance() + balanceDto.getCrossUnPnl();
+        FIXED_MARGIN_PER_ORDER = (int) walletBalance / maxNumberOfOrders;
+    }
 
     @SneakyThrows
     public static void main(String[] args) {
-//        List<String> ids = getTradersIds(partitions, TimeRange.D30, FilterType.COPIER_PNL);
-        List<String> ids = List.of("3701555442111522817", "3708884547500009217", "3705565653582929153", "3745161142246130945", "909110824361279489");
-
+        List<String> ids = List.of(
+                "1FB04E31362DEED9CAA1C7EF8A771B8A",
+                "ACD6F840DE4A5C87C77FB7A49892BB35",
+                "E4C2BCB6FDF2A2A7A20D516B8389B952"
+        );
         ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
         executorService
                 .scheduleWithFixedDelay(() -> {
@@ -55,14 +78,13 @@ public class SimplePositionNotifier {
                                 proceedTradersPositions(ids);
                                 System.out.println();
                                 return;
-                            } catch (SocketTimeoutException ex) {
+                            } catch (SocketTimeoutException | UnknownHostException | NoRouteToHostException ex) {
                                 ex.printStackTrace();
-                                Thread.sleep(20000);
+                                Thread.sleep(30000);
                             }
                         }
                     } catch (Exception e) {
                         executorService.shutdown();
-                        log.info("=================================================\n");
                         e.printStackTrace();
                     }
                 }, 0, delay, TimeUnit.SECONDS);
@@ -70,9 +92,9 @@ public class SimplePositionNotifier {
 
     private static void proceedTradersPositions(List<String> tradersIds) throws IOException {
         // add all traders positions to map
-        Map<String, PositionData> traderPositionMap = new HashMap<>();
+        Map<String, Position> traderPositionMap = new HashMap<>();
         for (String id : tradersIds) {
-            List<PositionData> tradersPositions = activePositions(id).getData();
+            List<Position> tradersPositions = getTraderPositions(id).getData().getOtherPositionRetList();
             if (tradersPositions.size() != 0) {
                 tradersPositions.forEach(position -> {
                     traderPositionMap.put(position.getSymbol(), position);
@@ -88,15 +110,14 @@ public class SimplePositionNotifier {
             }
         }
 
-        // if balance less than minimum than exit method
         BalanceDto balanceDto = client.balance(USDT.name());
-        Double availableBalance = balanceDto.getAvailableBalance();
-        if (availableBalance < FIXED_AMOUNT_PER_ORDER) {
+        double availableBalance = balanceDto.getAvailableBalance();
+        if (availableBalance < FIXED_MARGIN_PER_ORDER) {
             return;
         }
 
         // check if trader has new orders than add to set to emulate
-        Set<PositionData> positionsToEmulate = new HashSet<>();
+        Set<Position> positionsToEmulate = new HashSet<>();
         for (String symbol : traderPositionMap.keySet()) {
             if (activePositions.stream().noneMatch(pos -> pos.getSymbol().equals(symbol))) {
                 positionsToEmulate.add(traderPositionMap.get(symbol));
@@ -108,32 +129,34 @@ public class SimplePositionNotifier {
         }
 
         // if balance is limited then start with ones where entry price closer to mark price
-        if (availableBalance < positionsToEmulate.size() * FIXED_AMOUNT_PER_ORDER) {
-            List<PositionData> sortedPositions = positionsToEmulate.stream().sorted((o1, o2) -> {
-                double o1Upl = parseDouble(o1.getUnrealizedProfit());
-                double o2Upl = parseDouble(o2.getUnrealizedProfit());
+        if (availableBalance < positionsToEmulate.size() * FIXED_MARGIN_PER_ORDER) {
+            List<Position> sortedPositions = positionsToEmulate.stream().sorted((o1, o2) -> {
+                double o1Upl = o1.getPnl();
+                double o2Upl = o2.getPnl();
                 if (o1Upl < 0 && o2Upl > 0) {
                     return 1;
                 } else if (o2Upl < 0 && o1Upl > 0) {
                     return -1;
                 } else if (o1Upl < 0 && o2Upl < 0) {
-                    double o1Diff = Math.abs(1 - parseDouble(o1.getEntryPrice()) / parseDouble(o1.getMarkPrice()));
-                    double o2Diff = Math.abs(1 - parseDouble(o2.getEntryPrice()) / parseDouble(o2.getMarkPrice()));
+                    double o1Diff = Math.abs(1 - o1.getEntryPrice() / o1.getMarkPrice());
+                    double o2Diff = Math.abs(1 - o2.getEntryPrice() / o2.getMarkPrice());
                     return Double.compare(o2Diff, o1Diff);
                 } else {
-                    double o1Diff = Math.abs(1 - parseDouble(o1.getEntryPrice()) / parseDouble(o1.getMarkPrice()));
-                    double o2Diff = Math.abs(1 - parseDouble(o2.getEntryPrice()) / parseDouble(o2.getMarkPrice()));
+                    double o1Diff = Math.abs(1 - o1.getEntryPrice() / o1.getMarkPrice());
+                    double o2Diff = Math.abs(1 - o2.getEntryPrice() / o2.getMarkPrice());
                     return Double.compare(o1Diff, o2Diff);
                 }
             }).collect(Collectors.toList());
-            for (PositionData positionData : sortedPositions) {
+            for (Position positionData : sortedPositions) {
                 try {
-                    if (client.balance(USDT.name()).getAvailableBalance() >= FIXED_AMOUNT_PER_ORDER) {
+                    if (availableBalance >= FIXED_MARGIN_PER_ORDER) {
                         emulateOrder(positionData);
+                        availableBalance -= FIXED_MARGIN_PER_ORDER;
                     }
                 } catch (Exception e) {
                     log.info("ERROR: " + e.getMessage());
                     e.printStackTrace();
+                    break;
                 }
             }
         } else {
@@ -141,12 +164,12 @@ public class SimplePositionNotifier {
         }
     }
 
-    private static void emulateOrder(PositionData positionData) {
+    private static void emulateOrder(Position positionData) {
         if (isToLateToCopy(positionData)) {
             return;
         }
         int leverage = adjustLeverage(positionData);
-        double amount = FIXED_AMOUNT_PER_ORDER  * leverage / parseDouble(positionData.getMarkPrice());
+        double amount = FIXED_MARGIN_PER_ORDER * leverage / positionData.getMarkPrice();
         LinkedHashMap<String, Object> params = getMarketOrderParams(
                 positionData.getSymbol(),
                 getPositionSide(positionData).name(),
@@ -157,7 +180,9 @@ public class SimplePositionNotifier {
             log.info("Emulated order. Order: " + response);
         } catch (BinanceClientException clientException) {
             if (clientException.getMessage().contains("Order's notional must be no smaller")) {
-                log.info("Exception: Symbol: " + positionData.getSymbol() + " " + clientException.getMessage());
+                System.out.println("==============================================================");
+                System.out.println("Exception: Symbol: " + positionData.getSymbol() + " " + clientException.getMessage());
+                System.out.println("==============================================================");
             } else {
                 throw clientException;
             }
@@ -166,11 +191,11 @@ public class SimplePositionNotifier {
 
     /**
      * Sets leverage value for cryptocurrency pair the same as lead trader.
-     * If leverage is higher than {@link DEFAULT_LEVERAGE} than set to default.
+     * If leverage is higher than {@link #DEFAULT_LEVERAGE} than set to default.
      * @param positionData position to emulate
      * @return leverage value
      */
-    private static int adjustLeverage(PositionData positionData) {
+    private static int adjustLeverage(Position positionData) {
         int initialLeverage = client.getLeverage(positionData.getSymbol());
         int positionLeverage = positionData.getLeverage();
         if (positionLeverage != initialLeverage) {
@@ -204,15 +229,15 @@ public class SimplePositionNotifier {
     }
 
     /**
-     * Validation before emulating position, if position already exists then don't emulate,
-     * Also checks that if we copy late and trader received >= 10% of profit than don't emulate position.
-     * @param positionData {@link PositionData} instance
+     * Validation before emulating position.
+     * Checks that if we copy late and trader received >= {@link #maxProfitAllowed} percentage of profit than don't emulate position.
+     * @param positionData {@link Position} instance
      * @return boolean value
      */
-    private static boolean isToLateToCopy(PositionData positionData) {
+    private static boolean isToLateToCopy(Position positionData) {
         OrderSide side = getPositionSide(positionData);
-        double entry = Double.parseDouble(positionData.getEntryPrice());
-        double mark = Double.parseDouble(positionData.getMarkPrice());
+        double entry =positionData.getEntryPrice();
+        double mark = positionData.getMarkPrice();
         if (side.equals(BUY) && ((mark * 100 / entry) - 100) <= maxProfitAllowed) {
             return false;
         }
@@ -220,6 +245,22 @@ public class SimplePositionNotifier {
             return false;
         }
         return true;
+    }
+
+    @SneakyThrows
+    private static Logger initLogger() {
+        Logger logger = Logger.getLogger("CopyTradingBot");
+        FileHandler fh = new FileHandler("server_log.txt", true);
+        fh.setFormatter(new Formatter() {
+            @NotNull
+            @Override
+            public String format(@NotNull LogRecord record) {
+                return String.format(new Date() + " "
+                        + record.getLevel() + " " + record.getMessage() + "\n");
+            }
+        });
+        logger.addHandler(fh);
+        return logger;
     }
 
 }

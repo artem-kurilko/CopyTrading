@@ -2,12 +2,23 @@ package com.copytrading.model;
 
 import com.copytrading.connector.model.PositionDto;
 import com.copytrading.copytradingleaderboard.model.response.positions.active.PositionData;
+import com.copytrading.futuresleaderboard.model.response.position.Position;
 
 import static java.lang.Double.parseDouble;
 
 public enum OrderSide {
     BUY,
     SELL;
+
+    public static OrderSide getPositionSide(Position position) {
+        double entry = position.getEntryPrice();
+        double mark = position.getMarkPrice();
+        double unrealized = position.getPnl();
+        if ((mark > entry && unrealized > 0) || (mark < entry && unrealized < 0))
+            return OrderSide.BUY;
+        else
+            return OrderSide.SELL;
+    }
 
     public static OrderSide getPositionSide(PositionData positionData) {
         if (positionData.getPositionSide().equals(PositionSide.BOTH)) {

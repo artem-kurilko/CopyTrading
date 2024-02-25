@@ -42,11 +42,11 @@ import static java.lang.Double.parseDouble;
 @Deprecated
 public class CopyTradingApplication {
     private static final BinanceConnector client = new BinanceConnector(futuresClient());
-    private static final int partitions = 3; // amount of traders to follow and divide balance equally
     private static HashMap<String, Double> balance = new HashMap<>(); // available balance for copying each trader
     private static final HashMap<String, List<OrderDto>> ordersStorage = new HashMap<>(); // stores trader id and copied active orders
+    private static final int partitions = 3; // amount of traders to follow and divide balance equally
 
-    public static final Logger log = initLogger();
+    private static final Logger log = initLogger();
 
     @Deprecated
     public static void main(String[] args) throws IOException {
