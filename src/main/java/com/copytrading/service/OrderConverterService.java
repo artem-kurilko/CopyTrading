@@ -17,7 +17,6 @@ public class OrderConverterService {
     public static LinkedHashMap<String, Object> getMarketOrderParams(String symbol, String side, double amount) {
         int symbolPrecision = symbolTickSizeMap.get(symbol);
         double quantity = round(amount, symbolPrecision);
-
         LinkedHashMap<String,Object> params = new LinkedHashMap<>();
         params.put("symbol", symbol);
         params.put("side", side);
@@ -54,7 +53,7 @@ public class OrderConverterService {
         } return roundValues;
     }
 
-    private static double round(double value, int places) {
+    public static double round(double value, int places) {
         long factor = (long) Math.pow(10, places);
         value = value * factor;
         long tmp = Math.round(value);

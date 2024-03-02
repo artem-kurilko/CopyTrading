@@ -1,6 +1,7 @@
 package com.copytrading;
 
 import com.binance.connector.futures.client.exceptions.BinanceClientException;
+import com.binance.connector.futures.client.exceptions.BinanceConnectorException;
 import com.copytrading.connector.BinanceConnector;
 import com.copytrading.connector.model.BalanceDto;
 import com.copytrading.connector.model.OrderDto;
@@ -11,7 +12,7 @@ import lombok.SneakyThrows;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
-import java.net.NoRouteToHostException;
+import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.util.*;
@@ -29,6 +30,7 @@ import static com.copytrading.futuresleaderboard.FuturesLeaderboardScrapper.getT
 import static com.copytrading.model.BaseAsset.USDT;
 import static com.copytrading.model.OrderSide.*;
 import static com.copytrading.service.OrderConverterService.getMarketOrderParams;
+import static com.copytrading.service.OrderConverterService.round;
 
 /**
  * Simple bot alternative.
@@ -38,29 +40,25 @@ import static com.copytrading.service.OrderConverterService.getMarketOrderParams
  * @version 2.0
  */
 
+//FIXME:
+// - ETHBTC emulate order calculate amount
 //TODO:
 // - добавить байбит тестнет
 // - добавить фильтрацию лид трейдеров (например mdd < 40, aum > 100k, pnl copy > 100k)
-// - сделать суб аки, 90%-95% баланса проверенные трейдеры, остальное на тестирование других + другие параметры (roi, copy count)
 public class SimplePositionNotifier {
     private static final BinanceConnector client = new BinanceConnector(futuresClient());
     private static final Logger log = initLogger();
 
     // trade
-    private static final int FIXED_MARGIN_PER_ORDER;
+    private static final HashMap<String, Integer> leverageStorage = new HashMap<>();
+    private static int FIXED_MARGIN_PER_ORDER;
     private static final int maxNumberOfOrders = 10;
     private static final int maxProfitAllowed = 3;
     private static final int DEFAULT_LEVERAGE = 10;
 
     // sockets
     private static final int SOCKET_RETRY_COUNT = 3;
-    private static final int delay = 20;
-
-    static {
-        BalanceDto balanceDto = client.balance(USDT.name());
-        double walletBalance = balanceDto.getBalance() + balanceDto.getCrossUnPnl();
-        FIXED_MARGIN_PER_ORDER = (int) walletBalance / maxNumberOfOrders;
-    }
+    private static final int delay = 10;
 
     @SneakyThrows
     public static void main(String[] args) {
@@ -78,7 +76,10 @@ public class SimplePositionNotifier {
                                 proceedTradersPositions(ids);
                                 System.out.println();
                                 return;
-                            } catch (SocketTimeoutException | UnknownHostException | NoRouteToHostException ex) {
+                            } catch (SocketTimeoutException |
+                                     UnknownHostException |
+                                     BinanceConnectorException |
+                                     SocketException ex) {
                                 ex.printStackTrace();
                                 Thread.sleep(30000);
                             }
@@ -110,7 +111,11 @@ public class SimplePositionNotifier {
             }
         }
 
+        // recalculate fixed_margin_per_order with each iteration, to make it more flexible to changes in balance
         BalanceDto balanceDto = client.balance(USDT.name());
+        double walletBalance = balanceDto.getBalance() + balanceDto.getCrossUnPnl();
+        FIXED_MARGIN_PER_ORDER = (int) walletBalance / maxNumberOfOrders;
+
         double availableBalance = balanceDto.getAvailableBalance();
         if (availableBalance < FIXED_MARGIN_PER_ORDER) {
             return;
@@ -151,12 +156,11 @@ public class SimplePositionNotifier {
                 try {
                     if (availableBalance >= FIXED_MARGIN_PER_ORDER) {
                         emulateOrder(positionData);
-                        availableBalance -= FIXED_MARGIN_PER_ORDER;
                     }
+                    availableBalance -= FIXED_MARGIN_PER_ORDER;
                 } catch (Exception e) {
-                    log.info("ERROR: " + e.getMessage());
-                    e.printStackTrace();
-                    break;
+                    log.info("ERROR: " + e.getMessage() + " Symbol: " + positionData.getSymbol() + " Position: " + positionData);
+                    throw e;
                 }
             }
         } else {
@@ -168,20 +172,31 @@ public class SimplePositionNotifier {
         if (isToLateToCopy(positionData)) {
             return;
         }
+        String symbol = positionData.getSymbol();
         int leverage = adjustLeverage(positionData);
+
+        // Calculate order amount
         double amount = FIXED_MARGIN_PER_ORDER * leverage / positionData.getMarkPrice();
+        if (symbol.equals("ETHBTC")) {
+            System.out.println("==============================================================");
+            String errorMessage = "ERROR: Emulate order cannot find symbol: " + positionData.getSymbol();
+            System.out.println(errorMessage);
+            System.out.println("==============================================================");
+            return;
+        }
+
         LinkedHashMap<String, Object> params = getMarketOrderParams(
-                positionData.getSymbol(),
+                symbol,
                 getPositionSide(positionData).name(),
                 amount
         );
         try {
             OrderDto response = client.placeOrder(params);
-            log.info("Emulated order. Order: " + response);
+            log.info("Emulated order. Symbol: " + response.getSymbol() + " Amount: " + round(amount, 2));
         } catch (BinanceClientException clientException) {
             if (clientException.getMessage().contains("Order's notional must be no smaller")) {
                 System.out.println("==============================================================");
-                System.out.println("Exception: Symbol: " + positionData.getSymbol() + " " + clientException.getMessage());
+                System.out.println("Exception: Symbol: " + symbol + " " + clientException.getMessage());
                 System.out.println("==============================================================");
             } else {
                 throw clientException;
@@ -196,21 +211,28 @@ public class SimplePositionNotifier {
      * @return leverage value
      */
     private static int adjustLeverage(Position positionData) {
-        int initialLeverage = client.getLeverage(positionData.getSymbol());
+        String symbol = positionData.getSymbol();
+        Integer initialLeverage = leverageStorage.get(symbol);
+        if (initialLeverage == null) {
+            initialLeverage = client.getLeverage(symbol);
+            leverageStorage.put(symbol, DEFAULT_LEVERAGE);
+        }
+
         int positionLeverage = positionData.getLeverage();
         if (positionLeverage != initialLeverage) {
             if (initialLeverage == DEFAULT_LEVERAGE) {
                 return DEFAULT_LEVERAGE;
             } else if (positionLeverage > DEFAULT_LEVERAGE) {
-                client.setLeverage(positionData.getSymbol(), DEFAULT_LEVERAGE);
+                client.setLeverage(symbol, DEFAULT_LEVERAGE);
                 return DEFAULT_LEVERAGE;
             } else {
-                client.setLeverage(positionData.getSymbol(), positionLeverage);
+                client.setLeverage(symbol, positionLeverage);
+                leverageStorage.put(symbol, positionLeverage);
                 return positionLeverage;
             }
         } else {
             if (initialLeverage > DEFAULT_LEVERAGE) {
-                client.setLeverage(positionData.getSymbol(), DEFAULT_LEVERAGE);
+                client.setLeverage(symbol, DEFAULT_LEVERAGE);
                 return DEFAULT_LEVERAGE;
             } else {
                 return initialLeverage;
@@ -236,7 +258,7 @@ public class SimplePositionNotifier {
      */
     private static boolean isToLateToCopy(Position positionData) {
         OrderSide side = getPositionSide(positionData);
-        double entry =positionData.getEntryPrice();
+        double entry = positionData.getEntryPrice();
         double mark = positionData.getMarkPrice();
         if (side.equals(BUY) && ((mark * 100 / entry) - 100) <= maxProfitAllowed) {
             return false;
