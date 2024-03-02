@@ -40,11 +40,8 @@ import static com.copytrading.service.OrderConverterService.round;
  * @version 2.0
  */
 
-//FIXME:
-// - ETHBTC emulate order calculate amount
 //TODO:
 // - добавить байбит тестнет
-// - добавить фильтрацию лид трейдеров (например mdd < 40, aum > 100k, pnl copy > 100k)
 public class SimplePositionNotifier {
     private static final BinanceConnector client = new BinanceConnector(futuresClient());
     private static final Logger log = initLogger();
@@ -168,6 +165,8 @@ public class SimplePositionNotifier {
         }
     }
 
+    //FIXME:
+    // - ETHBTC emulate order calculate amount
     private static void emulateOrder(Position positionData) {
         if (isToLateToCopy(positionData)) {
             return;
