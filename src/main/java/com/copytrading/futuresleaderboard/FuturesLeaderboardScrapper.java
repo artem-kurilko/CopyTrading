@@ -91,7 +91,7 @@ public class FuturesLeaderboardScrapper {
      * - position shared = true
      * @return boolean value
      */
-    private static boolean isLeadTraderValid(String id) throws IOException {
+    public static boolean isLeadTraderValid(String id) throws IOException {
         TraderPerformance performanceResponse = getTraderPerformance(id).getData();
         if (performanceResponse == null) {
             return false;
@@ -153,21 +153,21 @@ public class FuturesLeaderboardScrapper {
         httpConn.setRequestProperty("Accept", "*/*");
         httpConn.setRequestProperty("Accept-Language", "en-US,en;q=0.5");
         httpConn.setRequestProperty("Accept-Encoding", "gzip, deflate, br");
-        httpConn.setRequestProperty("Referer", "https://www.binance.com/en/futures-activity/leaderboard/user/um?encryptedUid=3E2490050892B00F2435043236F9C8F1");
+        httpConn.setRequestProperty("Referer", "https://www.binance.com/en/futures-activity/leaderboard/user/um?encryptedUid=3BAFAFCA68AB85929DF777C316F18C54");
         httpConn.setRequestProperty("lang", "en");
-        httpConn.setRequestProperty("x-ui-request-trace", "d91b88b0-51d3-4f6f-a4df-b0a6d5db57f2");
-        httpConn.setRequestProperty("x-trace-id", "d91b88b0-51d3-4f6f-a4df-b0a6d5db57f2");
+        httpConn.setRequestProperty("x-ui-request-trace", "0fe7e70f-ae64-436c-9156-6c87133fb6e4");
+        httpConn.setRequestProperty("x-trace-id", "0fe7e70f-ae64-436c-9156-6c87133fb6e4");
         httpConn.setRequestProperty("bnc-uuid", "5479519b-922b-4027-b382-c1c1e9651633");
         httpConn.setRequestProperty("content-type", "application/json");
-        httpConn.setRequestProperty("device-info", "eyJzY3JlZW5fcmVzb2x1dGlvbiI6Ijg4MCwxNDA4IiwiYXZhaWxhYmxlX3NjcmVlbl9yZXNvbHV0aW9uIjoiODI3LDE0MDgiLCJzeXN0ZW1fdmVyc2lvbiI6IldpbmRvd3MgMTAiLCJicmFuZF9tb2RlbCI6InVua25vd24iLCJzeXN0ZW1fbGFuZyI6ImVuLVVTIiwidGltZXpvbmUiOiJHTVQrMDI6MDAiLCJ0aW1lem9uZU9mZnNldCI6LTEyMCwidXNlcl9hZ2VudCI6Ik1vemlsbGEvNS4wIChXaW5kb3dzIE5UIDEwLjA7IFdpbjY0OyB4NjQ7IHJ2OjEyMy4wKSBHZWNrby8yMDEwMDEwMSBGaXJlZm94LzEyMy4wIiwibGlzdF9wbHVnaW4iOiJQREYgVmlld2VyLENocm9tZSBQREYgVmlld2VyLENocm9taXVtIFBERiBWaWV3ZXIsTWljcm9zb2Z0IEVkZ2UgUERGIFZpZXdlcixXZWJLaXQgYnVpbHQtaW4gUERGIiwiY2FudmFzX2NvZGUiOiIzYjYyZTA1ZCIsIndlYmdsX3ZlbmRvciI6Ikdvb2dsZSBJbmMuIChJbnRlbCkiLCJ3ZWJnbF9yZW5kZXJlciI6IkFOR0xFIChJbnRlbCwgSW50ZWwoUikgSEQgR3JhcGhpY3MgRGlyZWN0M0QxMSB2c181XzAgcHNfNV8wKSwgb3Igc2ltaWxhciIsImF1ZGlvIjoiMzUuNzQ5OTY4MjIzMjczNzU0IiwicGxhdGZvcm0iOiJXaW4zMiIsIndlYl90aW1lem9uZSI6IkV1cm9wZS9LeWl2IiwiZGV2aWNlX25hbWUiOiJGaXJlZm94IFYxMjMuMCAoV2luZG93cykiLCJmaW5nZXJwcmludCI6IjEyZDg4MTM0NmQxMDNkZmJhMGEwNDJlYjRhNGE0ZTdiIiwiZGV2aWNlX2lkIjoiIiwicmVsYXRlZF9kZXZpY2VfaWRzIjoiIn0=");
+        httpConn.setRequestProperty("device-info", "eyJzY3JlZW5fcmVzb2x1dGlvbiI6Ijg4MCwxNDA4IiwiYXZhaWxhYmxlX3NjcmVlbl9yZXNvbHV0aW9uIjoiODI3LDE0MDgiLCJzeXN0ZW1fdmVyc2lvbiI6IldpbmRvd3MgMTAiLCJicmFuZF9tb2RlbCI6InVua25vd24iLCJzeXN0ZW1fbGFuZyI6ImVuLVVTIiwidGltZXpvbmUiOiJHTVQrMDI6MDAiLCJ0aW1lem9uZU9mZnNldCI6LTEyMCwidXNlcl9hZ2VudCI6Ik1vemlsbGEvNS4wIChXaW5kb3dzIE5UIDEwLjA7IFdpbjY0OyB4NjQ7IHJ2OjEyMy4wKSBHZWNrby8yMDEwMDEwMSBGaXJlZm94LzEyMy4wIiwibGlzdF9wbHVnaW4iOiJQREYgVmlld2VyLENocm9tZSBQREYgVmlld2VyLENocm9taXVtIFBERiBWaWV3ZXIsTWljcm9zb2Z0IEVkZ2UgUERGIFZpZXdlcixXZWJLaXQgYnVpbHQtaW4gUERGIiwiY2FudmFzX2NvZGUiOiIxMmZjOTYxMyIsIndlYmdsX3ZlbmRvciI6Ikdvb2dsZSBJbmMuIChJbnRlbCkiLCJ3ZWJnbF9yZW5kZXJlciI6IkFOR0xFIChJbnRlbCwgSW50ZWwoUikgSEQgR3JhcGhpY3MgRGlyZWN0M0QxMSB2c181XzAgcHNfNV8wKSwgb3Igc2ltaWxhciIsImF1ZGlvIjoiMzUuNzQ5OTY4MjIzMjczNzU0IiwicGxhdGZvcm0iOiJXaW4zMiIsIndlYl90aW1lem9uZSI6IkV1cm9wZS9LeWl2IiwiZGV2aWNlX25hbWUiOiJGaXJlZm94IFYxMjMuMCAoV2luZG93cykiLCJmaW5nZXJwcmludCI6Ijg2NDVlNmZmZmI4ZjViZWVmZGY0YzE4ODdhMWMwODIyIiwiZGV2aWNlX2lkIjoiIiwicmVsYXRlZF9kZXZpY2VfaWRzIjoiIn0=");
         httpConn.setRequestProperty("clienttype", "web");
         httpConn.setRequestProperty("fvideo-id", "3365a86b00d7a827a9abdf1ca915103153252fdf");
-        httpConn.setRequestProperty("fvideo-token", "Z3W3Y5r8BxkYTuStx1BEGH1a6TNZSehBLMZbeunjFlkZRnbed8YRKvai6361RRF1k6rAzpu15EbP7skLKm2iPmzL+Gf0jxP19PyeoD0EB5CfJwbelG2eGG6R7Ynhvypjmt9QHjIXh2YZUZlZCgEQH0HeH1NtIfacz9hxun2kSgdPS7I5yAiDU21xavxHz80Pk=14");
-        httpConn.setRequestProperty("csrftoken", "87fc0ebed87764673f8d379d31805064");
+        httpConn.setRequestProperty("fvideo-token", "fAUyDMGEM+oxM1P7aWYkKzi+HvEYSUaxBNVgclkKlh9A8F8w1RbUp5t0jwwrT417wd/0kCpFiEhI0zy4sSYPvDPxCXd7CdnC76/d1SaxBqc/sCyLc+RUzUWI9Nrrv1hXB3tKMBDCn/43uuVompj9NtNbmGC5jZV8X9OR9Vh8E1+1sG5y+gyUMY94kHOghVDdU=3a");
+        httpConn.setRequestProperty("csrftoken", "e88dee4dce7e57d1363e2bb21592a325");
         httpConn.setRequestProperty("Origin", "https://www.binance.com");
         httpConn.setRequestProperty("DNT", "1");
         httpConn.setRequestProperty("Connection", "keep-alive");
-        httpConn.setRequestProperty("Cookie", cookies);
+        httpConn.setRequestProperty("Cookie", "bnc-uuid=5479519b-922b-4027-b382-c1c1e9651633; source=CRM; campaign=www.google.com; __BNC_USER_DEVICE_ID__={\"c3508c5ce64b615279eb64b805ec2d23\":{\"date\":1709909803885,\"value\":\"\"}}; OptanonConsent=isGpcEnabled=0&datestamp=Fri+Mar+08+2024+20%3A49%3A26+GMT%2B0200+(Eastern+European+Standard+Time)&version=202310.2.0&isIABGlobal=false&hosts=&consentId=0d40cfb8-607b-4d83-836f-7acdc5cdc169&interactionCount=2&landingPath=NotLandingPage&groups=C0001%3A1%2CC0003%3A0%2CC0004%3A0%2CC0002%3A0&AwaitingReconsent=true&browserGpcFlag=0&geolocation=; sensorsdata2015jssdkcross=%7B%22distinct_id%22%3A%2239079923%22%2C%22first_id%22%3A%22189c0e04e615c8-0befeaa62bf74a8-d505429-1024000-189c0e04e62849%22%2C%22props%22%3A%7B%22%24latest_traffic_source_type%22%3A%22%E7%9B%B4%E6%8E%A5%E6%B5%81%E9%87%8F%22%2C%22%24latest_search_keyword%22%3A%22%E6%9C%AA%E5%8F%96%E5%88%B0%E5%80%BC_%E7%9B%B4%E6%8E%A5%E6%89%93%E5%BC%80%22%2C%22%24latest_referrer%22%3A%22%22%2C%22%24latest_utm_source%22%3A%22CRM%22%2C%22%24latest_utm_medium%22%3A%22Email%22%7D%2C%22identities%22%3A%22eyIkaWRlbnRpdHlfY29va2llX2lkIjoiMTg5YzBlMDRlNjE1YzgtMGJlZmVhYTYyYmY3NGE4LWQ1MDU0MjktMTAyNDAwMC0xODljMGUwNGU2Mjg0OSIsIiRpZGVudGl0eV9sb2dpbl9pZCI6IjM5MDc5OTIzIn0%3D%22%2C%22history_login_id%22%3A%7B%22name%22%3A%22%24identity_login_id%22%2C%22value%22%3A%2239079923%22%7D%2C%22%24device_id%22%3A%22189c0e04e615c8-0befeaa62bf74a8-d505429-1024000-189c0e04e62849%22%7D; userPreferredCurrency=USD_USD; BNC_FV_KEY=3365a86b00d7a827a9abdf1ca915103153252fdf; BNC_FV_KEY_EXPIRE=1709931350963; changeBasisTimeZone=; fiat-prefer-currency=UAH; camp-key=; pl-id=39079923; BNC_FV_KEY_T=101-XR5GMEFbB1ouVQVFrSN18RoLT2AvxuWGpCpqzWQIhZ5KDIxKX5evCLZxdGNxzfzsNgvAIq%2Bto%2FJ7ktDSrepwjw%3D%3D-oXowYP%2BFdCtyIClTbdb9AQ%3D%3D-2a; se_gd=hYMVABBxXGRFgJVhVGg9gZZUwVgkFBUUVML5YUE91RcUAWlNXW9W1; se_gsd=WjQkCjhhIzAnIxo7NCUhCjooFg8NBQsIU1RAUF1SWlRaAlNS1; g_state={\"i_l\":4,\"i_p\":1708807731479}; BNC-Location=BINANCE; OptanonAlertBoxClosed=2023-10-13T14:42:36.915Z; _ga=GA1.2.1353433018.1705945987; language=en; futures-layout=pro; se_sd=BdVEhXwoLGWVwIIgHBgAgZZEwBlMFEUUVMG5YUE91RcUABlNXW0A1; _h_desk_key=5b2ea216a8a946b8a5bb52325095eed5; p20t=web.39079923.91E94592427EBACC8694D115B544BA61; d1og=web.39079923.C08A4C00680B39A6E4403AAFD8F9DFD7; r2o1=web.39079923.468AF3CEBFEFCD949016251EC3C3DB0D; f30l=web.39079923.7FA4B2AE38E95237B9CFBE2F1D52BD0E; s9r1=38BBFF21CF25820166F00A693FCE66FF; cr00=6CDD3E2E4BF7FFFFA5BA647CEE757C3F; logined=y; lang=en; theme=dark");
         httpConn.setRequestProperty("Sec-Fetch-Dest", "empty");
         httpConn.setRequestProperty("Sec-Fetch-Mode", "cors");
         httpConn.setRequestProperty("Sec-Fetch-Site", "same-origin");
@@ -191,7 +191,6 @@ public class FuturesLeaderboardScrapper {
         Gson gson = new Gson();
         return gson.fromJson(response, TraderPositions.class);
     }
-
 
     private static String updateCookies(String cookies) {
         final Date date = new Date();
@@ -229,7 +228,7 @@ public class FuturesLeaderboardScrapper {
         return cookies;
     }
 
-    private static String getLink(String id) {
+    public static String getLink(String id) {
         return "https://www.binance.com/en/futures-activity/leaderboard/user/um?encryptedUid=" + id;
     }
 

@@ -9,8 +9,12 @@ import java.util.List;
 
 @Service
 public class TradeDtoService {
+    private final TradeDtoRepository tradeDtoRepository;
+
     @Autowired
-    private TradeDtoRepository tradeDtoRepository;
+    public TradeDtoService(TradeDtoRepository tradeDtoRepository) {
+        this.tradeDtoRepository = tradeDtoRepository;
+    }
 
     public void save(TradeDto tradeDto) {
         tradeDtoRepository.save(tradeDto);

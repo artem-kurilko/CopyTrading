@@ -8,6 +8,7 @@ import com.copytrading.connector.model.OrderDto;
 import com.copytrading.connector.model.PositionDto;
 import com.copytrading.futuresleaderboard.model.response.position.Position;
 import com.copytrading.model.OrderSide;
+import com.google.gson.JsonSyntaxException;
 import lombok.SneakyThrows;
 import org.jetbrains.annotations.NotNull;
 
@@ -39,7 +40,6 @@ import static com.copytrading.service.OrderConverterService.round;
  * @author Artemii Kurilko
  * @version 2.0
  */
-
 //TODO:
 // - добавить байбит тестнет
 public class SimplePositionNotifier {
@@ -49,20 +49,25 @@ public class SimplePositionNotifier {
     // trade
     private static final HashMap<String, Integer> leverageStorage = new HashMap<>();
     private static int FIXED_MARGIN_PER_ORDER;
-    private static final int maxNumberOfOrders = 10;
+    private static final int maxNumberOfOrders = 15;
     private static final int maxProfitAllowed = 3;
-    private static final int DEFAULT_LEVERAGE = 10;
+    private static final int DEFAULT_LEVERAGE = 12;
 
     // sockets
-    private static final int SOCKET_RETRY_COUNT = 3;
+    private static final int SOCKET_RETRY_COUNT = 10;
+    private static final int DEFAULT_RETRY_COUNT = 3;
+    private static int RETRY_COUNT = DEFAULT_RETRY_COUNT;
     private static final int delay = 10;
+
 
     @SneakyThrows
     public static void main(String[] args) {
         List<String> ids = List.of(
-                "1FB04E31362DEED9CAA1C7EF8A771B8A",
+//                "1FB04E31362DEED9CAA1C7EF8A771B8A",
                 "ACD6F840DE4A5C87C77FB7A49892BB35",
-                "E4C2BCB6FDF2A2A7A20D516B8389B952"
+                "F3D5DFEBBB2FDBC5891FD4663BCA556F",
+                "E921F42DCD4D9F6ECC0DFCE3BAB1D11A",
+                "3BAFAFCA68AB85929DF777C316F18C54"
         );
         ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
         executorService
@@ -72,6 +77,7 @@ public class SimplePositionNotifier {
                             try {
                                 proceedTradersPositions(ids);
                                 System.out.println();
+                                RETRY_COUNT = DEFAULT_RETRY_COUNT;
                                 return;
                             } catch (SocketTimeoutException |
                                      UnknownHostException |
@@ -79,6 +85,12 @@ public class SimplePositionNotifier {
                                      SocketException ex) {
                                 ex.printStackTrace();
                                 Thread.sleep(30000);
+                            } catch (JsonSyntaxException e) {
+                                if (RETRY_COUNT == 0) {
+                                    throw e;
+                                } else {
+                                    RETRY_COUNT--;
+                                }
                             }
                         }
                     } catch (Exception e) {
@@ -93,7 +105,7 @@ public class SimplePositionNotifier {
         Map<String, Position> traderPositionMap = new HashMap<>();
         for (String id : tradersIds) {
             List<Position> tradersPositions = getTraderPositions(id).getData().getOtherPositionRetList();
-            if (tradersPositions.size() != 0) {
+            if (!tradersPositions.isEmpty()) {
                 tradersPositions.forEach(position -> {
                     traderPositionMap.put(position.getSymbol(), position);
                 });
@@ -126,7 +138,7 @@ public class SimplePositionNotifier {
             }
         }
 
-        if (positionsToEmulate.size() == 0) {
+        if (positionsToEmulate.isEmpty()) {
             return;
         }
 
@@ -183,7 +195,6 @@ public class SimplePositionNotifier {
             System.out.println("==============================================================");
             return;
         }
-
         LinkedHashMap<String, Object> params = getMarketOrderParams(
                 symbol,
                 getPositionSide(positionData).name(),
@@ -191,7 +202,7 @@ public class SimplePositionNotifier {
         );
         try {
             OrderDto response = client.placeOrder(params);
-            log.info("Emulated order. Symbol: " + response.getSymbol() + " Amount: " + round(amount, 2));
+            log.info("Emulated order. Symbol: " + response.getSymbol() + " Margin: $" + round(FIXED_MARGIN_PER_ORDER, 2));
         } catch (BinanceClientException clientException) {
             if (clientException.getMessage().contains("Order's notional must be no smaller")) {
                 System.out.println("==============================================================");

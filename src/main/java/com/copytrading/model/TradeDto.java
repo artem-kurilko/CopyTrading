@@ -1,24 +1,23 @@
 package com.copytrading.model;
 
+import com.copytrading.TestnetPaperTrading;
 import lombok.Builder;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import java.util.List;
 
 /**
  * Simple entity to track orders for paper trading.
  *
- * @see com.copytrading.TestnetPaperTrading
+ * @see TestnetPaperTrading
  */
 @Data
 @Builder
+@Document(collection = "TradeDto")
 public class TradeDto {
     @Id
     private String traderId;
-    private String symbol;
-    private PositionSide side;
-    private int leverage;
-    private double entryPrice;
-    private double size;
-    private long updateTime;
-    private long time;
+    private List<TradeDtoData> positions;
 }
