@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 
 import static com.copytrading.connector.config.BinanceConfig.futuresClient;
 import static com.copytrading.futuresleaderboard.FuturesLeaderboardScrapper.getTraderPositions;
+import static com.copytrading.futuresleaderboard.FuturesLeaderboardScrapper.getTradersBaseInfo;
 import static com.copytrading.model.BaseAsset.USDT;
 import static com.copytrading.model.OrderSide.*;
 import static com.copytrading.service.OrderConverterService.getMarketOrderParams;
@@ -46,7 +47,7 @@ public class SimplePositionNotifier {
     private static final BinanceConnector client = new BinanceConnector(futuresClient());
     private static final Logger log = initLogger();
 
-    // trade
+    // trading
     private static final HashMap<String, Integer> leverageStorage = new HashMap<>();
     private static int FIXED_MARGIN_PER_ORDER;
     private static final int maxNumberOfOrders = 15;
@@ -55,10 +56,7 @@ public class SimplePositionNotifier {
 
     // sockets
     private static final int SOCKET_RETRY_COUNT = 10;
-    private static final int DEFAULT_RETRY_COUNT = 3;
-    private static int RETRY_COUNT = DEFAULT_RETRY_COUNT;
     private static final int delay = 10;
-
 
     @SneakyThrows
     public static void main(String[] args) {
@@ -75,22 +73,17 @@ public class SimplePositionNotifier {
                     try {
                         for (int i = 1; i <= SOCKET_RETRY_COUNT; i++) {
                             try {
+                                tradersCheck(ids);
                                 proceedTradersPositions(ids);
                                 System.out.println();
-                                RETRY_COUNT = DEFAULT_RETRY_COUNT;
                                 return;
                             } catch (SocketTimeoutException |
                                      UnknownHostException |
                                      BinanceConnectorException |
+                                     JsonSyntaxException |
                                      SocketException ex) {
                                 ex.printStackTrace();
                                 Thread.sleep(30000);
-                            } catch (JsonSyntaxException e) {
-                                if (RETRY_COUNT == 0) {
-                                    throw e;
-                                } else {
-                                    RETRY_COUNT--;
-                                }
                             }
                         }
                     } catch (Exception e) {
@@ -100,15 +93,26 @@ public class SimplePositionNotifier {
                 }, 0, delay, TimeUnit.SECONDS);
     }
 
+    /**
+     * Checks that trader is active and shares his positions.
+     * @param tradersIds list of ids
+     * @throws IOException if exceptoin occurs
+     */
+    private static void tradersCheck(List<String> tradersIds) throws IOException {
+        for (String id : tradersIds) {
+            if (!getTradersBaseInfo(id).getData().isPositionShared()) {
+                throw new RuntimeException("Error trader: " + id + " has hidden his positions.");
+            }
+        }
+    }
+
     private static void proceedTradersPositions(List<String> tradersIds) throws IOException {
         // add all traders positions to map
         Map<String, Position> traderPositionMap = new HashMap<>();
         for (String id : tradersIds) {
             List<Position> tradersPositions = getTraderPositions(id).getData().getOtherPositionRetList();
             if (!tradersPositions.isEmpty()) {
-                tradersPositions.forEach(position -> {
-                    traderPositionMap.put(position.getSymbol(), position);
-                });
+                tradersPositions.forEach(position -> traderPositionMap.put(position.getSymbol(), position));
             }
         }
 
