@@ -1,8 +1,8 @@
 package com.copytrading.model;
 
 import com.copytrading.connector.model.PositionDto;
-import com.copytrading.copytradingleaderboard.model.response.positions.active.PositionData;
-import com.copytrading.futuresleaderboard.model.response.position.Position;
+import com.copytrading.sources.binance.copytradingleaderboard.model.response.positions.active.PositionData;
+import com.copytrading.sources.binance.futuresleaderboard.model.response.position.Position;
 
 import static java.lang.Double.parseDouble;
 

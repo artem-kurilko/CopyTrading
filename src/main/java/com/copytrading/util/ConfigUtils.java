@@ -1,7 +1,8 @@
 package com.copytrading.util;
 
+import lombok.SneakyThrows;
+
 import java.io.FileReader;
-import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Properties;
 
@@ -11,7 +12,8 @@ import java.util.Properties;
 public class ConfigUtils {
     public static final String resourcePath = "src/main/resources/application.properties";
 
-    public static String getProperty(String name) throws IOException {
+    @SneakyThrows
+    public static String getProperty(String name) {
         Properties props = new Properties();
         props.load(new FileReader(Paths.get(resourcePath).toFile()));
         return props.getProperty(name);

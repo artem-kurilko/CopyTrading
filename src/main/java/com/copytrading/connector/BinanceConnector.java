@@ -12,6 +12,9 @@ import org.json.JSONObject;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static com.copytrading.connector.config.BinanceConfig.futuresClient;
+import static com.copytrading.connector.config.BinanceConfig.testClient;
+
 /**
  * Binance service connector.
  */
@@ -19,8 +22,8 @@ public class BinanceConnector {
     private static final Gson gson = new Gson();
     private final UMFuturesClientImpl client;
 
-    public BinanceConnector(UMFuturesClientImpl client) {
-        this.client = client;
+    public BinanceConnector(boolean isProd) {
+        this.client = isProd ? futuresClient() : testClient();
     }
 
     public OrderDto placeOrder(LinkedHashMap<String, Object> parameters) {

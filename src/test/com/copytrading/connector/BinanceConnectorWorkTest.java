@@ -1,22 +1,21 @@
 package com.copytrading.connector;
 
-import com.copytrading.copytradingleaderboard.model.request.FilterType;
-import com.copytrading.copytradingleaderboard.model.request.LeaderboardParams;
-import com.copytrading.copytradingleaderboard.model.request.OrderSort;
-import com.copytrading.copytradingleaderboard.model.request.TimeRange;
-import com.copytrading.copytradingleaderboard.model.response.leaderboard.CopyTradingLeaderboard;
-import com.copytrading.copytradingleaderboard.model.response.leaderboard.TraderInfo;
-import com.copytrading.copytradingleaderboard.model.response.positions.active.PositionData;
+import com.copytrading.sources.binance.copytradingleaderboard.model.request.FilterType;
+import com.copytrading.sources.binance.copytradingleaderboard.model.request.LeaderboardParams;
+import com.copytrading.sources.binance.copytradingleaderboard.model.request.OrderSort;
+import com.copytrading.sources.binance.copytradingleaderboard.model.request.TimeRange;
+import com.copytrading.sources.binance.copytradingleaderboard.model.response.leaderboard.CopyTradingLeaderboard;
+import com.copytrading.sources.binance.copytradingleaderboard.model.response.leaderboard.TraderInfo;
+import com.copytrading.sources.binance.copytradingleaderboard.model.response.positions.active.PositionData;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.List;
 
-import static com.copytrading.connector.config.BinanceConfig.testClient;
-import static com.copytrading.copytradingleaderboard.CopyLeaderboardScrapper.*;
+import static com.copytrading.sources.binance.copytradingleaderboard.CopyLeaderboardScrapper.*;
 
 public class BinanceConnectorWorkTest {
-    private final BinanceConnector connector = new BinanceConnector(testClient());
+    private final BinanceConnector connector = new BinanceConnector(false);
 
     @Test
     public void testNewOrder() throws IOException {
