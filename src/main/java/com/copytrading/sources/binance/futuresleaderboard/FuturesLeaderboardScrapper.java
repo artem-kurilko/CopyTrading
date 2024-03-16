@@ -1,17 +1,16 @@
 package com.copytrading.sources.binance.futuresleaderboard;
 
 import com.copytrading.sources.binance.futuresleaderboard.model.request.*;
+import com.copytrading.sources.binance.futuresleaderboard.model.response.leaderboard.FuturesLeaderboard;
+import com.copytrading.sources.binance.futuresleaderboard.model.response.leaderboard.Leader;
 import com.copytrading.sources.binance.futuresleaderboard.model.response.position.Position;
+import com.copytrading.sources.binance.futuresleaderboard.model.response.position.TraderPositions;
 import com.copytrading.sources.binance.futuresleaderboard.model.response.trader.TraderBaseInfo;
 import com.copytrading.sources.binance.futuresleaderboard.model.response.trader.TraderInfo;
 import com.copytrading.sources.binance.futuresleaderboard.model.response.trader.performance.PerformanceDto;
 import com.copytrading.sources.binance.futuresleaderboard.model.response.trader.performance.TraderPerformance;
 import com.copytrading.sources.binance.futuresleaderboard.model.response.trader.performance.TraderPerformanceResponse;
-import com.copytrading.sources.binance.futuresleaderboard.model.response.leaderboard.FuturesLeaderboard;
-import com.copytrading.sources.binance.futuresleaderboard.model.response.leaderboard.Leader;
-import com.copytrading.sources.binance.futuresleaderboard.model.response.position.TraderPositions;
 import com.google.gson.Gson;
-import lombok.SneakyThrows;
 import okhttp3.OkHttpClient;
 import retrofit2.Call;
 import retrofit2.Retrofit;
@@ -30,11 +29,9 @@ import java.util.zip.GZIPInputStream;
 
 public class FuturesLeaderboardScrapper {
     private static final FuturesLeaderboardAPI client = getFuturesLeaderboardClient();
-    // cookies to access trader's position at /future/leaderboard/getOtherPosition
-    private static final String cookies = "bnc-uuid=5479519b-922b-4027-b382-c1c1e9651633; source=CRM; campaign=www.google.com; __BNC_USER_DEVICE_ID__={\"c3508c5ce64b615279eb64b805ec2d23\":{\"date\":1709180155886,\"value\":\"\"}}; OptanonConsent=isGpcEnabled=0&datestamp=Thu+Feb+29+2024+06%3A16%3A21+GMT%2B0200+(Eastern+European+Standard+Time)&version=202310.2.0&isIABGlobal=false&hosts=&consentId=0d40cfb8-607b-4d83-836f-7acdc5cdc169&interactionCount=2&landingPath=NotLandingPage&groups=C0001%3A1%2CC0003%3A0%2CC0004%3A0%2CC0002%3A0&AwaitingReconsent=true&browserGpcFlag=0&geolocation=; sensorsdata2015jssdkcross=%7B%22distinct_id%22%3A%2239079923%22%2C%22first_id%22%3A%22189c0e04e615c8-0befeaa62bf74a8-d505429-1024000-189c0e04e62849%22%2C%22props%22%3A%7B%22%24latest_traffic_source_type%22%3A%22%E7%9B%B4%E6%8E%A5%E6%B5%81%E9%87%8F%22%2C%22%24latest_search_keyword%22%3A%22%E6%9C%AA%E5%8F%96%E5%88%B0%E5%80%BC_%E7%9B%B4%E6%8E%A5%E6%89%93%E5%BC%80%22%2C%22%24latest_referrer%22%3A%22%22%2C%22%24latest_utm_source%22%3A%22CRM%22%2C%22%24latest_utm_medium%22%3A%22Email%22%7D%2C%22identities%22%3A%22eyIkaWRlbnRpdHlfY29va2llX2lkIjoiMTg5YzBlMDRlNjE1YzgtMGJlZmVhYTYyYmY3NGE4LWQ1MDU0MjktMTAyNDAwMC0xODljMGUwNGU2Mjg0OSIsIiRpZGVudGl0eV9sb2dpbl9pZCI6IjM5MDc5OTIzIn0%3D%22%2C%22history_login_id%22%3A%7B%22name%22%3A%22%24identity_login_id%22%2C%22value%22%3A%2239079923%22%7D%2C%22%24device_id%22%3A%22189c0e04e615c8-0befeaa62bf74a8-d505429-1024000-189c0e04e62849%22%7D; userPreferredCurrency=USD_USD; BNC_FV_KEY=3365a86b00d7a827a9abdf1ca915103153252fdf; BNC_FV_KEY_EXPIRE=1709201698320; changeBasisTimeZone=; fiat-prefer-currency=UAH; camp-key=; pl-id=39079923; BNC_FV_KEY_T=101-D%2FckB93%2BaS%2FZoQbfMs9%2B5KbJ%2FkKceO%2BCb9KOV1YL%2FQvZ9rlUfPuuab974jxJgEPo%2FJvZjf72A4nrs0YQU%2BxnsQ%3D%3D-pHbjfmR4K2SWRbkvwtKn8A%3D%3D-f9; se_gd=hYMVABBxXGRFgJVhVGg9gZZUwVgkFBUUVML5YUE91RcUAWlNXW9W1; se_gsd=WjQkCjhhIzAnIxo7NCUhCjooFg8NBQsIU1RAUF1SWlRaAlNS1; g_state={\"i_l\":4,\"i_p\":1708807731479}; BNC-Location=BINANCE; OptanonAlertBoxClosed=2023-10-13T14:42:36.915Z; _ga=GA1.2.1353433018.1705945987; language=en; logined=y; futures-layout=pro; se_sd=BdVEhXwoLGWVwIIgHBgAgZZEwBlMFEUUVMG5YUE91RcUABlNXW0A1; _h_desk_key=030d046b9a9b41a0b0c4cbff6a7deef4; p20t=web.39079923.8C2436DB6F61C0E2E960CD2A67CAF0BC; d1og=web.39079923.6C1B96632D03F87E69D5B2CB503290CD; r2o1=web.39079923.977654FFD7B0B700125A94B45892A3C5; f30l=web.39079923.A5D05ED55728A4648EC19D8F1C4CE8E8; s9r1=D0508D527276D9A47D0302D46476D4C3; cr00=B19FB2FD53D3B449D89B1FEA8DA9E459; lang=en; theme=dark";
 
     public static List<Leader> futuresLeaderboard(PeriodType period, StatisticsType type, int limit) throws IOException {
-        List<Leader> leadersList = new LinkedList<>();;
+        List<Leader> leadersList = new LinkedList<>();
         FuturesLeaderboard leaderboard = getFuturesLeaderboard(period, type);
         for (Leader leader : leaderboard.getData()) {
             if (limit == 0) {
@@ -46,11 +43,6 @@ public class FuturesLeaderboardScrapper {
         return leadersList;
     }
 
-    @SneakyThrows
-    public static void main(String[] args) {
-        validFuturesLeaderboard(PeriodType.MONTHLY, StatisticsType.PNL, 100).forEach(System.out::println);
-    }
-
     /**
      * Returns futures leaderboard with filters {@link #isLeadTraderValid(String)}
      * @param period period to filter by
@@ -60,7 +52,7 @@ public class FuturesLeaderboardScrapper {
      * @throws IOException if exception thrown
      */
     public static List<Leader> validFuturesLeaderboard(PeriodType period, StatisticsType type, int limit) throws IOException {
-        List<Leader> leadersList = new LinkedList<>();;
+        List<Leader> leadersList = new LinkedList<>();
         FuturesLeaderboard leaderboard = getFuturesLeaderboard(period, type);
         for (Leader leader : leaderboard.getData()) {
             if (limit == 0) {
@@ -159,7 +151,6 @@ public class FuturesLeaderboardScrapper {
 
     /**
      * Returns trader's active positions
-     *
      * @param encryptedUid trader id
      * @return trader's positions
      * @throws IOException if exception occurs
@@ -216,6 +207,13 @@ public class FuturesLeaderboardScrapper {
         return positions;
     }
 
+    /**
+     * Unfortunately this method is @deprecated
+     * As updating date doesn't work, cookies still invalid
+     * @param cookies string value
+     * @return updated cookies
+     */
+    @Deprecated
     private static String updateCookies(String cookies) {
         final Date date = new Date();
         final long currentTimeMillis = date.getTime();

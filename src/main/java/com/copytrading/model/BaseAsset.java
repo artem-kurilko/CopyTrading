@@ -1,5 +1,6 @@
 package com.copytrading.model;
 
 public enum BaseAsset {
-    USDT
+    USDT,
+    BTC
 }

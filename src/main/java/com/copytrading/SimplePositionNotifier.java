@@ -39,21 +39,20 @@ import static com.copytrading.sources.binance.futuresleaderboard.model.request.P
  * This bot just iterate via copy traders orders and place position with fixed balance.
  *
  * @author Artemii Kurilko
- * @version 2.3
+ * @version 2.4
  */
 public class SimplePositionNotifier {
     /**
      * Trading mode: testEnv=false, prodEnv=true
      */
-    private static boolean mode = false;
+    private static final boolean mode = false;
 
     private static final BinanceConnector client = new BinanceConnector(mode);
     private static final LeadTraderDatabaseService db = new LeadTraderDatabaseService(mode);
-    private static final ScheduledLeftOrdersProcessor leftOrdersProcessor = new ScheduledLeftOrdersProcessor(mode);
+    private static final AsyncUnmarkedOrdersProcessor leftOrdersProcessor = new AsyncUnmarkedOrdersProcessor(mode);
     private static final Logger log = initLogger();
 
     // trading
-    private static HashMap<String, List<String>> leadTradersOrders = new HashMap<>();
     private static final HashMap<String, Integer> leverageStorage = new HashMap<>();
     private static int FIXED_MARGIN_PER_ORDER;
     private static final int maxNumberOfOrders = 20;
@@ -65,22 +64,9 @@ public class SimplePositionNotifier {
     private static final int delay = 10;
 
     @SneakyThrows
-    public static void mafin(String[] args) {
-        ArrayList<String> ids;
-        if (db.getLeaderIdsAndOrders().isEmpty()) {
-            ids = new ArrayList<>(Arrays.asList(
-//                    "1FB04E31362DEED9CAA1C7EF8A771B8A",
-                    "ACD6F840DE4A5C87C77FB7A49892BB35",
-                    "F3D5DFEBBB2FDBC5891FD4663BCA556F",
-                    "E921F42DCD4D9F6ECC0DFCE3BAB1D11A",
-                    "3BAFAFCA68AB85929DF777C316F18C54"
-            ));
-        } else {
-            HashMap<String, List<String>> idsAndOrdersMap = db.getLeaderIdsAndOrders();
-            ids = new ArrayList<>(idsAndOrdersMap.keySet());
-            leadTradersOrders = idsAndOrdersMap;
-        }
+    public static void main(String[] args) {
         leftOrdersProcessor.proceedLeftOrders();
+        List<String> ids = getIds();
 
         ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
         executorService
@@ -88,7 +74,6 @@ public class SimplePositionNotifier {
                     try {
                         for (int i = 1; i <= SOCKET_RETRY_COUNT; i++) {
                             try {
-                                tradersCheck(ids);
                                 proceedTradersPositions(ids);
                                 System.out.println();
                                 return;
@@ -103,56 +88,60 @@ public class SimplePositionNotifier {
                         }
                     } catch (Exception e) {
                         executorService.shutdown();
-                        db.resetLeaderIdsAndOrders(leadTradersOrders);
                         throw new RuntimeException(e);
                     }
                 }, 0, delay, TimeUnit.SECONDS);
     }
 
-    @SneakyThrows
-    public static void main(String[] args) {
-        List<String> ids = new ArrayList<>(Arrays.asList(
+    private static List<String> getIds() {
+        List<String> ids = db.getLeaderIds();
+        if (ids.isEmpty()) {
+            ids = new ArrayList<>(Arrays.asList(
 //                    "1FB04E31362DEED9CAA1C7EF8A771B8A",
-                "ACD6F840DE4A5C87C77FB7A49892BB35",
-                "F3D5DFEBBB2FDBC5891FD4663BCA556F",
-                "E921F42DCD4D9F6ECC0DFCE3BAB1D11A",
-                "3BAFAFCA68AB85929DF777C316F18C54"
-        ));
-   }
+                    "ACD6F840DE4A5C87C77FB7A49892BB35",
+                    "F3D5DFEBBB2FDBC5891FD4663BCA556F",
+                    "E921F42DCD4D9F6ECC0DFCE3BAB1D11A",
+                    "3BAFAFCA68AB85929DF777C316F18C54"
+            ));
+            ids.forEach(id -> db.saveNewTrader(id, Collections.emptyList()));
+        }
+        return ids;
+    }
 
     private static void proceedTradersPositions(List<String> tradersIds) throws IOException {
-        // actualize db active order with current open positions
-        List<PositionDto> activePositions = client.positionInfo();
-        // взять лефт ордерс тоже блять, тип если у нового трейдера появился такой же как и в лефт, то лефт привязать к этому трейдеру
-        List<String> ordersIds = leadTradersOrders.values().stream().flatMap(List::stream).toList();
-
-
         // add all traders positions to map
-        // if there are positions which don't exist in map, check if it's left, if not execute immediately, left order should have separate logic asynchronously
-        // than excluding the ones I have, emulate them in order
-        // add one more exchange to emulate
-
-
-
-        // add all traders positions to map
+        List<String> unmarkedOrders = db.getUnmarkedOrders();
         Map<String, Position> traderPositionMap = new HashMap<>();
         for (String id : tradersIds) {
             List<Position> tradersPositions = getTraderPositions(id).getData().getOtherPositionRetList();
             if (!tradersPositions.isEmpty()) {
-                tradersPositions.forEach(position -> traderPositionMap.put(position.getSymbol(), position));
+                for (Position position : tradersPositions) {
+                    String positionSymbol = position.getSymbol();
+                    traderPositionMap.put(positionSymbol, position);
+                    // update unmarked orders
+                    if (unmarkedOrders.stream().anyMatch(order -> order.equals(positionSymbol))) {
+                        db.removeOrderFromUnmarkedOrders(positionSymbol);
+                        db.saveNewTrader(position.getTraderId(), Collections.singletonList(positionSymbol));
+                    }
+                }
             }
         }
-
+        
+        // check if any of the traders hide their positions
+        if (!tradersCheck(tradersIds)){
+            return;
+        }
+        
         // check if there are positions to execute
         List<PositionDto> activePositions = client.positionInfo();
         for (PositionDto positionDto : activePositions) {
             if (traderPositionMap.keySet().stream().noneMatch(symbol -> symbol.equals(positionDto.getSymbol()))) {
-                executeOrder(positionDto, "leadTraderId", "orderId");
+                executeOrder(positionDto);
             }
         }
 
         // recalculate fixed_margin_per_order with each iteration, to make it more flexible to changes in balance
-        BalanceDto balanceDto = client.balance(USDT.name());
+        BalanceDto balanceDto = client.balance(USDT);
         double walletBalance = balanceDto.getBalance() + balanceDto.getCrossUnPnl();
         FIXED_MARGIN_PER_ORDER = (int) walletBalance / maxNumberOfOrders;
 
@@ -207,39 +196,31 @@ public class SimplePositionNotifier {
         }
     }
 
-    private static void emulateOrder(Position positionData, double margin) {
-        if (isToLateToCopy(positionData)) {
+    private static void emulateOrder(Position position, double margin) {
+        if (isToLateToCopy(position)) {
             return;
         }
-        String symbol = positionData.getSymbol();
-        int leverage = adjustLeverage(positionData);
+        String symbol = position.getSymbol();
+        int leverage = adjustLeverage(position);
 
         // Calculate order amount
-        double amount = margin * leverage / positionData.getMarkPrice();
+        double amount = margin * leverage / position.getMarkPrice();
         if (symbol.equals("ETHBTC")) {
-            System.out.println("==============================================================");
-            String errorMessage = "ERROR: Emulate order cannot find symbol: " + positionData.getSymbol();
-            System.out.println(errorMessage);
-            System.out.println("==============================================================");
+            double minNotional = 0.001;
+            System.out.println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+            System.out.println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+            System.out.println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
             return;
         }
         LinkedHashMap<String, Object> params = getMarketOrderParams(
                 symbol,
-                getPositionSide(positionData).name(),
+                getPositionSide(position).name(),
                 amount
         );
         try {
             OrderDto response = client.placeOrder(params);
+            db.saveOrderToTrader(position.getTraderId(), symbol);
             log.info("Emulated order. Symbol: " + response.getSymbol() + " Margin: $" + round(FIXED_MARGIN_PER_ORDER, 2));
-            // add order to storage
-            String traderId = positionData.getTraderId();
-            List<String> updatedOrders = leadTradersOrders.get(traderId);
-            if (updatedOrders != null) {
-                updatedOrders.add(response.getOrderId());
-                leadTradersOrders.put(traderId, updatedOrders);
-            } else {
-                leadTradersOrders.put(traderId, List.of(response.getOrderId()));
-            }
         } catch (BinanceClientException clientException) {
             if (clientException.getMessage().contains("Order's notional must be no smaller")) {
                 System.out.println("==============================================================");
@@ -249,6 +230,42 @@ public class SimplePositionNotifier {
                 throw clientException;
             }
         }
+    }
+
+    private static void executeOrder(PositionDto positionDto) {
+        String symbol = positionDto.getSymbol();
+        LinkedHashMap<String, Object> params = getMarketOrderParams(
+                symbol,
+                getOppositeSide(positionDto),
+                Math.abs(positionDto.getPositionAmt())
+        );
+        client.placeOrder(params);
+        db.removeOrderFromTrader(symbol);
+        log.info("Executed Symbol: " + symbol + " UPL: " + positionDto.getUnRealizedProfit());
+    }
+
+    /**
+     * Checks that trader is active and shares his positions,
+     * If not replace with next in ranking trader.
+     * @param tradersIds list of ids
+     * @throws IOException if exception occurs
+     * @return false if traders hide their positions and were updated, true if not
+     */
+    private static boolean tradersCheck(List<String> tradersIds) throws IOException {
+        List<String> iterateIds = new ArrayList<>(tradersIds);
+        boolean res = true;
+        for (String id : iterateIds) {
+            if (!getTradersBaseInfo(id).getData().isPositionShared()) {
+                res = false;
+                // replace lead trader id
+                String leadId = getNextTopTrader(tradersIds, MONTHLY, StatisticsType.PNL);
+                tradersIds.remove(id);
+                tradersIds.add(leadId);
+                // transfer trader orders to unmarked orders
+                List<String> unmarkedOrders = db.getAndRemoveTradersSymbols(id);
+                db.saveUnmarkedOrders(unmarkedOrders);
+            }
+        } return res;
     }
 
     /**
@@ -287,24 +304,6 @@ public class SimplePositionNotifier {
         }
     }
 
-    private static void executeOrder(PositionDto positionDto, String traderId, String orderId) {
-        String symbol = positionDto.getSymbol();
-        LinkedHashMap<String, Object> params = getMarketOrderParams(
-                symbol,
-                getOppositeSide(positionDto),
-                Math.abs(positionDto.getPositionAmt())
-        );
-        OrderDto response = client.placeOrder(params);
-        System.out.println(response);
-        // remove order is from list
-        if (leadTradersOrders.get(traderId) != null) {
-            leadTradersOrders.get(traderId).remove(orderId);
-        } else {
-            leadTradersOrders.put(traderId, Collections.emptyList());
-        }
-        log.info("Executed Symbol: " + symbol + " UPL: " + positionDto.getUnRealizedProfit());
-    }
-
     /**
      * Validation before emulating position.
      * Checks that if we copy late and trader received >= {@link #maxProfitAllowed} percentage of profit than don't emulate position.
@@ -322,31 +321,6 @@ public class SimplePositionNotifier {
             return false;
         }
         return true;
-    }
-
-    /**
-     * Checks that trader is active and shares his positions,
-     * If not replace with next in ranking trader.
-     * @param tradersIds list of ids
-     * @throws IOException if exception occurs
-     */
-    private static void tradersCheck(List<String> tradersIds) throws IOException {
-        List<String> iterateIds = new ArrayList<>(tradersIds);
-        for (String id : iterateIds) {
-            if (!getTradersBaseInfo(id).getData().isPositionShared()) {
-                // replace lead trader id
-                String leadId = getNextTopTrader(tradersIds, MONTHLY, StatisticsType.PNL);
-                tradersIds.remove(id);
-                tradersIds.add(leadId);
-
-                // transfer trader orders to left orders
-                List<String> leftOrderList = leadTradersOrders.remove(id);
-                leadTradersOrders.put(leadId, Collections.emptyList());
-                if (leftOrderList != null && !leftOrderList.isEmpty()) {
-                    db.saveLeftOrders(leftOrderList);
-                }
-            }
-        }
     }
 
     @SneakyThrows

@@ -5,6 +5,7 @@ import com.copytrading.connector.model.BalanceDto;
 import com.copytrading.connector.model.MarginType;
 import com.copytrading.connector.model.OrderDto;
 import com.copytrading.connector.model.PositionDto;
+import com.copytrading.model.BaseAsset;
 import com.google.gson.Gson;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -59,8 +60,8 @@ public class BinanceConnector {
         return Arrays.stream(gson.fromJson(response, BalanceDto[].class)).collect(Collectors.toList());
     }
 
-    public BalanceDto balance(String symbol) {
-        return balance().stream().filter(balance -> balance.getAsset().equals(symbol)).findFirst().orElseThrow(() -> new IllegalArgumentException("Get balance, symbol not found " + symbol));
+    public BalanceDto balance(BaseAsset symbol) {
+        return balance().stream().filter(balance -> balance.getAsset().equals(symbol.name())).findFirst().orElseThrow(() -> new IllegalArgumentException("Get balance, symbol not found " + symbol));
     }
 
     /**

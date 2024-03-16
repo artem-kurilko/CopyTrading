@@ -5,10 +5,7 @@ import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
 import org.bson.Document;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static com.copytrading.util.ConfigUtils.getProperty;
 
@@ -20,6 +17,19 @@ public class LeadTraderDatabaseService {
 
     public LeadTraderDatabaseService(boolean isProd) {
         this.isProd = isProd;
+    }
+
+    public List<String> getLeaderIds() {
+        Set<String> ids = new HashSet<>();
+        MongoClient mongo = new MongoClient( "localhost" , 27017 );
+        MongoCollection<Document> collection = getLeadTraderCollection(mongo);
+
+        FindIterable<Document> iterDoc = collection.find();
+        for (Document document : iterDoc) {
+            ids.add(document.getString("id"));
+        }
+        mongo.close();
+        return new ArrayList<>(ids);
     }
 
     public HashMap<String, List<String>> getLeaderIdsAndOrders() {
@@ -38,38 +48,70 @@ public class LeadTraderDatabaseService {
         return tradersIds;
     }
 
-    public List<String> getLeftOrders() {
-        List<String> leftOrders = new ArrayList<>();
+    public void saveOrderToTrader(String id, String symbol) {
         MongoClient mongo = new MongoClient( "localhost" , 27017 );
-        MongoCollection<Document> collection = getLeftOrdersCollection(mongo);
+        MongoCollection<Document> collection = getLeadTraderCollection(mongo);
         FindIterable<Document> iterDoc = collection.find();
         for (Document document : iterDoc) {
-            if (document.getString("id").isEmpty()) {
-                leftOrders.addAll(document.getList("orders", String.class));
-                break;
+            if (document.getString("id").equals(id)) {
+                List<String> positions = document.getList("orders", String.class);
+                List<String> updatePositions = new ArrayList<>(positions);
+                updatePositions.add(symbol);
+                Document updatedDocument = new Document()
+                        .append("id", document.getString("id"))
+                        .append("orders", updatePositions);
+                collection.replaceOne(document, updatedDocument);
+                mongo.close();
+                return;
             }
         }
-        mongo.close();
-        return leftOrders;
+        throw new IllegalArgumentException("Trader with symbol: " + symbol + " not found.");
     }
 
-    public void saveLeftOrders(List<String> leftOrders) {
+    public void saveNewTrader(String id, List<String> symbols) {
         MongoClient mongo = new MongoClient( "localhost" , 27017 );
-        MongoCollection<Document> collection = getLeftOrdersCollection(mongo);
-        FindIterable<Document> iterDoc = collection.find();
-        List<String> oldLeftOrders = new ArrayList<>();
-        for (Document document : iterDoc) {
-            if (document.getString("id").isEmpty()) {
-                oldLeftOrders = document.getList("orders", String.class);
-                break;
-            }
-        }
-        collection.deleteMany(new Document());
+        MongoCollection<Document> collection = getLeadTraderCollection(mongo);
         Document document = new Document();
-        document.append("id", "");
-        document.append("orders", oldLeftOrders.addAll(leftOrders));
+        document.append("id", id);
+        document.append("orders", symbols);
         collection.insertOne(document);
         mongo.close();
+    }
+
+    public void removeOrderFromTrader(String symbol) {
+        MongoClient mongo = new MongoClient( "localhost" , 27017 );
+        MongoCollection<Document> collection = getLeadTraderCollection(mongo);
+        FindIterable<Document> iterDoc = collection.find();
+        for (Document document : iterDoc) {
+            List<String> positions = document.getList("orders", String.class);
+            if (positions.contains(symbol)) {
+                List<String> updatePositions = new ArrayList<>(positions);
+                updatePositions.remove(symbol);
+                Document updatedDocument = new Document()
+                        .append("id", document.getString("id"))
+                        .append("orders", updatePositions);
+                collection.replaceOne(document, updatedDocument);
+                mongo.close();
+                return;
+            }
+        }
+        throw new IllegalArgumentException("Trader with symbol: " + symbol + " not found.");
+    }
+
+    public List<String> getAndRemoveTradersSymbols(String id) {
+        MongoClient mongo = new MongoClient( "localhost" , 27017 );
+        MongoCollection<Document> collection = getLeadTraderCollection(mongo);
+
+        FindIterable<Document> iterDoc = collection.find();
+        for (Document document : iterDoc) {
+            if (document.getString("id").equals(id)) {
+                List<String> symbols = document.getList("orders", String.class);
+                collection.deleteOne(document);
+                return symbols;
+            }
+        }
+        mongo.close();
+        return Collections.emptyList();
     }
 
     /**
@@ -91,16 +133,65 @@ public class LeadTraderDatabaseService {
         mongo.close();
     }
 
+    public List<String> getUnmarkedOrders() {
+        MongoClient mongo = new MongoClient( "localhost" , 27017 );
+        MongoCollection<Document> collection = getUnmarkedOrdersCollection(mongo);
+        Document document = collection.find().first();
+        if (document != null) {
+            List<String> leftOrders = new ArrayList<>(document.getList("orders", String.class));
+            mongo.close();
+            return leftOrders;
+        } else {
+            mongo.close();
+            return Collections.emptyList();
+        }
+    }
+
+    public void saveUnmarkedOrders(List<String> symbols) {
+        MongoClient mongo = new MongoClient( "localhost" , 27017 );
+        MongoCollection<Document> collection = getUnmarkedOrdersCollection(mongo);
+        Document document = collection.find().first();
+
+        if (document != null) {
+            List<String> currentSymbols = document.getList("orders", String.class);
+            currentSymbols.addAll(symbols);
+            collection.deleteOne(new Document());
+            Document updated = new Document().append("orders", currentSymbols);
+            collection.insertOne(updated);
+            mongo.close();
+        } else {
+            mongo.close();
+            System.out.println("UNMARKED ORDERS DOCUMENT NOT FOUND");
+        }
+    }
+
+    public void removeOrderFromUnmarkedOrders(String symbol) {
+        MongoClient mongo = new MongoClient( "localhost" , 27017 );
+        MongoCollection<Document> collection = getUnmarkedOrdersCollection(mongo);
+        Document document = collection.find().first();
+
+        if (document != null) {
+            List<String> currentSymbols = document.getList("orders", String.class);
+            currentSymbols.remove(symbol);
+            collection.deleteOne(new Document());
+            Document updated = new Document().append("orders", currentSymbols);
+            collection.insertOne(updated);
+            mongo.close();
+        } else {
+            mongo.close();
+            System.out.println("UNMARKED ORDERS DOCUMENT NOT FOUND");
+        }
+    }
+
     /**
      * Removes all records and sets the passed ones.
      * @param leftOrders list of orderId, it is copied orders of traders that no longer show their positions
      */
-    public void resetLeftOrders(List<String> leftOrders) {
+    public void resetUnmarkedOrders(List<String> leftOrders) {
         MongoClient mongo = new MongoClient( "localhost" , 27017 );
-        MongoCollection<Document> collection = getLeftOrdersCollection(mongo);
+        MongoCollection<Document> collection = getUnmarkedOrdersCollection(mongo);
         collection.deleteMany(new Document());
         Document document = new Document();
-        document.append("id", "");
         document.append("orders", leftOrders);
         collection.insertOne(document);
         mongo.close();
@@ -118,14 +209,14 @@ public class LeadTraderDatabaseService {
         return mongo.getDatabase(database).getCollection(collection);
     }
 
-    private MongoCollection<Document> getLeftOrdersCollection(MongoClient mongo) {
+    private MongoCollection<Document> getUnmarkedOrdersCollection(MongoClient mongo) {
         String database, collection;
         if (isProd) {
             database = getProperty("mongo.database");
-            collection = getProperty("mongo.collection.simple.left");
+            collection = getProperty("mongo.collection.simple.unmarked");
         } else {
             database = getProperty("test.mongo.database");
-            collection = getProperty("test.mongo.collection.simple.left");
+            collection = getProperty("test.mongo.collection.simple.unmarked");
         }
         return mongo.getDatabase(database).getCollection(collection);
     }
