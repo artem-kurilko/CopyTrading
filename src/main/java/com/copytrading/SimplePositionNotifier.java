@@ -50,7 +50,7 @@ public class SimplePositionNotifier {
     private static final BinanceConnector client = new BinanceConnector(mode);
     private static final LeadTraderDatabaseService db = new LeadTraderDatabaseService(mode);
     private static final AsyncUnmarkedOrdersProcessor leftOrdersProcessor = new AsyncUnmarkedOrdersProcessor(mode);
-    private static final Logger log = initLogger();
+    public static final Logger log = initLogger();
 
     // trading
     private static final HashMap<String, Integer> leverageStorage = new HashMap<>();

@@ -4,11 +4,38 @@ import com.copytrading.connector.model.PositionDto;
 import com.copytrading.sources.binance.copytradingleaderboard.model.response.positions.active.PositionData;
 import com.copytrading.sources.binance.futuresleaderboard.model.response.position.Position;
 
+import java.util.List;
+
 import static java.lang.Double.parseDouble;
 
 public enum OrderSide {
     BUY,
     SELL;
+
+    /**
+     * Returns main order side of positions, for example from sell, sell, buy, sell - main side is sell.
+     * @param positions list of {@link PositionDto} instances
+     * @return order side
+     */
+    public static OrderSide getMainOrderSide(List<Position> positions) {
+        int sellSideCount = 0;
+        int buySideCount = 0;
+        for (Position position : positions) {
+            OrderSide side = getPositionSide(position);
+            if (side.equals(BUY)) {
+                buySideCount++;
+            } else {
+                sellSideCount++;
+            }
+        }
+        if (buySideCount > sellSideCount) {
+            return BUY;
+        } else if (sellSideCount > buySideCount) {
+            return SELL;
+        } else {
+            throw new RuntimeException("Exception in getMainOrderSide,  positions: " + positions);
+        }
+    }
 
     public static OrderSide getPositionSide(Position position) {
         double entry = position.getEntryPrice();

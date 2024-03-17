@@ -129,14 +129,7 @@ public class FuturesLeaderboardScrapper {
         }
 
         TraderBaseInfo traderInfo = getTradersBaseInfo(id).getData();
-        int followers = traderInfo.getFollowerCount();
-        if (!traderInfo.isPositionShared()) {
-            return false;
-        }
-        if (followers < 100) {
-            return false;
-        }
-        return true;
+        return traderInfo.isPositionShared();
     }
 
     public static TraderInfo getTradersBaseInfo(String encryptedUid) throws IOException {
