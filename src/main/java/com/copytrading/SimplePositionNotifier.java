@@ -47,17 +47,20 @@ public class SimplePositionNotifier {
      */
     private static final boolean mode = false;
 
+    // common
     private static final BinanceConnector client = new BinanceConnector(mode);
     private static final LeadTraderDatabaseService db = new LeadTraderDatabaseService(mode);
     private static final AsyncUnmarkedOrdersProcessor leftOrdersProcessor = new AsyncUnmarkedOrdersProcessor(mode);
+    private static final HashMap<String, Integer> leverageStorage = new HashMap<>();
     public static final Logger log = initLogger();
 
     // trading
-    private static final HashMap<String, Integer> leverageStorage = new HashMap<>();
+    private static final int numOfLeadTraders = 4;
     private static int FIXED_MARGIN_PER_ORDER;
-    private static final int maxNumberOfOrders = 20;
+    private static final int maxNumberOfOrders = 15;
+    // max price change in percentage, i.e. lead trader position long, and price raised to 3 percentage then don't copy
     private static final int maxProfitAllowed = 3;
-    private static final int DEFAULT_LEVERAGE = 12;
+    private static final int MAX_LEVERAGE = 12;
 
     // sockets
     private static final int SOCKET_RETRY_COUNT = 10;
@@ -93,7 +96,7 @@ public class SimplePositionNotifier {
                 }, 0, delay, TimeUnit.SECONDS);
     }
 
-    private static List<String> getIds() {
+    private static List<String> getIds() throws IOException {
         List<String> ids = db.getLeaderIds();
         if (ids.isEmpty()) {
             ids = new ArrayList<>(Arrays.asList(
@@ -105,12 +108,18 @@ public class SimplePositionNotifier {
             ));
             ids.forEach(id -> db.saveNewTrader(id, Collections.emptyList()));
         }
+
+        while (ids.size() < numOfLeadTraders) {
+            String nextId = getNextTopTrader(ids, MONTHLY, StatisticsType.PNL);
+            ids.add(nextId);
+            db.saveNewTrader(nextId, Collections.emptyList());
+        }
+        tradersCheck(ids);
         return ids;
     }
 
     private static void proceedTradersPositions(List<String> tradersIds) throws IOException {
         // add all traders positions to map
-        List<String> unmarkedOrders = db.getUnmarkedOrders();
         Map<String, Position> traderPositionMap = new HashMap<>();
         for (String id : tradersIds) {
             List<Position> tradersPositions = getTraderPositions(id).getData().getOtherPositionRetList();
@@ -118,11 +127,6 @@ public class SimplePositionNotifier {
                 for (Position position : tradersPositions) {
                     String positionSymbol = position.getSymbol();
                     traderPositionMap.put(positionSymbol, position);
-                    // update unmarked orders
-                    if (unmarkedOrders.stream().anyMatch(order -> order.equals(positionSymbol))) {
-                        db.removeOrderFromUnmarkedOrders(positionSymbol);
-                        db.saveNewTrader(position.getTraderId(), Collections.singletonList(positionSymbol));
-                    }
                 }
             }
         }
@@ -140,16 +144,6 @@ public class SimplePositionNotifier {
             }
         }
 
-        // recalculate fixed_margin_per_order with each iteration, to make it more flexible to changes in balance
-        BalanceDto balanceDto = client.balance(USDT);
-        double walletBalance = balanceDto.getBalance() + balanceDto.getCrossUnPnl();
-        FIXED_MARGIN_PER_ORDER = (int) walletBalance / maxNumberOfOrders;
-
-        double availableBalance = balanceDto.getAvailableBalance();
-        if (availableBalance < FIXED_MARGIN_PER_ORDER) {
-            return;
-        }
-
         // check if trader has new orders than add to set to emulate
         Set<Position> positionsToEmulate = new HashSet<>();
         for (String symbol : traderPositionMap.keySet()) {
@@ -157,30 +151,19 @@ public class SimplePositionNotifier {
                 positionsToEmulate.add(traderPositionMap.get(symbol));
             }
         }
-
         if (positionsToEmulate.isEmpty()) {
             return;
         }
 
+        // recalculate fixed_margin_per_order with each iteration, to make it more flexible to changes in balance
+        BalanceDto balanceDto = client.balance(USDT);
+        double walletBalance = balanceDto.getBalance() + balanceDto.getCrossUnPnl();
+        FIXED_MARGIN_PER_ORDER = (int) walletBalance / maxNumberOfOrders;
+        double availableBalance = balanceDto.getAvailableBalance();
+
         // if balance is limited then start with ones where entry price closer to mark price
         if (availableBalance < positionsToEmulate.size() * FIXED_MARGIN_PER_ORDER) {
-            List<Position> sortedPositions = positionsToEmulate.stream().sorted((o1, o2) -> {
-                double o1Upl = o1.getPnl();
-                double o2Upl = o2.getPnl();
-                if (o1Upl < 0 && o2Upl > 0) {
-                    return 1;
-                } else if (o2Upl < 0 && o1Upl > 0) {
-                    return -1;
-                } else if (o1Upl < 0 && o2Upl < 0) {
-                    double o1Diff = Math.abs(1 - o1.getEntryPrice() / o1.getMarkPrice());
-                    double o2Diff = Math.abs(1 - o2.getEntryPrice() / o2.getMarkPrice());
-                    return Double.compare(o2Diff, o1Diff);
-                } else {
-                    double o1Diff = Math.abs(1 - o1.getEntryPrice() / o1.getMarkPrice());
-                    double o2Diff = Math.abs(1 - o2.getEntryPrice() / o2.getMarkPrice());
-                    return Double.compare(o1Diff, o2Diff);
-                }
-            }).toList();
+            List<Position> sortedPositions = sortPositions(positionsToEmulate);
             for (Position positionData : sortedPositions) {
                 try {
                     double margin = availableBalance >= FIXED_MARGIN_PER_ORDER ? FIXED_MARGIN_PER_ORDER : availableBalance;
@@ -196,20 +179,46 @@ public class SimplePositionNotifier {
         }
     }
 
+    /**
+     * Algorithm to sort positions from most to less preferable.
+     * The best position is where trader has negative pnl, so our profit is greater
+     * If both positions have positive pnl choose where mark price is closer to entry price
+     * @param positions set of positions
+     * @return sorted list
+     */
+    public static List<Position> sortPositions(Set<Position> positions) {
+        return positions.stream().sorted((o1, o2) -> {
+            double o1Upl = o1.getPnl();
+            double o2Upl = o2.getPnl();
+            if (o1Upl < 0 && o2Upl > 0) {
+                return -1;
+            } else if (o2Upl < 0 && o1Upl > 0) {
+                return 1;
+            } else if (o1Upl < 0 && o2Upl < 0) {
+                double o1Diff = Math.abs(1 - o1.getEntryPrice() / o1.getMarkPrice());
+                double o2Diff = Math.abs(1 - o2.getEntryPrice() / o2.getMarkPrice());
+                return Math.max(o1Diff, o2Diff) == o2Diff ? 1 : -1;
+            } else {
+                double o1Diff = Math.abs(1 - o1.getEntryPrice() / o1.getMarkPrice());
+                double o2Diff = Math.abs(1 - o2.getEntryPrice() / o2.getMarkPrice());
+                return Math.min(o1Diff, o2Diff) == o2Diff ? 1 : -1;
+            }
+        }).toList();
+    }
+
     private static void emulateOrder(Position position, double margin) {
         if (isToLateToCopy(position)) {
             return;
         }
         String symbol = position.getSymbol();
         int leverage = adjustLeverage(position);
-
-        // Calculate order amount
         double amount = margin * leverage / position.getMarkPrice();
+
         if (symbol.equals("ETHBTC")) {
-            double minNotional = 0.001;
-            System.out.println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-            System.out.println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-            System.out.println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+            // double minNotional = 0.001;
+            System.out.println("==================================");
+            System.out.println("ETHBTC logic doesn't support");
+            System.out.println("==================================");
             return;
         }
         LinkedHashMap<String, Object> params = getMarketOrderParams(
@@ -251,7 +260,7 @@ public class SimplePositionNotifier {
      * @throws IOException if exception occurs
      * @return false if traders hide their positions and were updated, true if not
      */
-    private static boolean tradersCheck(List<String> tradersIds) throws IOException {
+    public static boolean tradersCheck(List<String> tradersIds) throws IOException {
         List<String> iterateIds = new ArrayList<>(tradersIds);
         boolean res = true;
         for (String id : iterateIds) {
@@ -261,16 +270,20 @@ public class SimplePositionNotifier {
                 String leadId = getNextTopTrader(tradersIds, MONTHLY, StatisticsType.PNL);
                 tradersIds.remove(id);
                 tradersIds.add(leadId);
+                db.saveNewTrader(leadId, Collections.emptyList());
+
                 // transfer trader orders to unmarked orders
                 List<String> unmarkedOrders = db.getAndRemoveTradersSymbols(id);
-                db.saveUnmarkedOrders(unmarkedOrders);
+                if (!unmarkedOrders.isEmpty()) {
+                    db.saveUnmarkedOrders(unmarkedOrders);
+                }
             }
         } return res;
     }
 
     /**
      * Sets leverage value for cryptocurrency pair the same as lead trader.
-     * If leverage is higher than {@link #DEFAULT_LEVERAGE} than set to default.
+     * If leverage is higher than {@link #MAX_LEVERAGE} than set to default.
      * @param positionData position to emulate
      * @return leverage value
      */
@@ -279,25 +292,25 @@ public class SimplePositionNotifier {
         Integer initialLeverage = leverageStorage.get(symbol);
         if (initialLeverage == null) {
             initialLeverage = client.getLeverage(symbol);
-            leverageStorage.put(symbol, DEFAULT_LEVERAGE);
+            leverageStorage.put(symbol, MAX_LEVERAGE);
         }
 
         int positionLeverage = positionData.getLeverage();
         if (positionLeverage != initialLeverage) {
-            if (initialLeverage == DEFAULT_LEVERAGE) {
-                return DEFAULT_LEVERAGE;
-            } else if (positionLeverage > DEFAULT_LEVERAGE) {
-                client.setLeverage(symbol, DEFAULT_LEVERAGE);
-                return DEFAULT_LEVERAGE;
+            if (initialLeverage == MAX_LEVERAGE) {
+                return MAX_LEVERAGE;
+            } else if (positionLeverage > MAX_LEVERAGE) {
+                client.setLeverage(symbol, MAX_LEVERAGE);
+                return MAX_LEVERAGE;
             } else {
                 client.setLeverage(symbol, positionLeverage);
                 leverageStorage.put(symbol, positionLeverage);
                 return positionLeverage;
             }
         } else {
-            if (initialLeverage > DEFAULT_LEVERAGE) {
-                client.setLeverage(symbol, DEFAULT_LEVERAGE);
-                return DEFAULT_LEVERAGE;
+            if (initialLeverage > MAX_LEVERAGE) {
+                client.setLeverage(symbol, MAX_LEVERAGE);
+                return MAX_LEVERAGE;
             } else {
                 return initialLeverage;
             }

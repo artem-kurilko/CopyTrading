@@ -133,6 +133,13 @@ public class LeadTraderDatabaseService {
         mongo.close();
     }
 
+    public void clearAllTraders() {
+        MongoClient mongo = new MongoClient( "localhost" , 27017 );
+        MongoCollection<Document> collection = getLeadTraderCollection(mongo);
+        collection.deleteMany(new Document());
+        mongo.close();
+    }
+
     public List<String> getUnmarkedOrders() {
         MongoClient mongo = new MongoClient( "localhost" , 27017 );
         MongoCollection<Document> collection = getUnmarkedOrdersCollection(mongo);
@@ -163,6 +170,13 @@ public class LeadTraderDatabaseService {
             mongo.close();
             System.out.println("UNMARKED ORDERS DOCUMENT NOT FOUND");
         }
+    }
+
+    public void clearUnmarkedOrders() {
+        MongoClient mongo = new MongoClient( "localhost" , 27017 );
+        MongoCollection<Document> collection = getUnmarkedOrdersCollection(mongo);
+        collection.deleteMany(new Document());
+        mongo.close();
     }
 
     public void removeOrderFromUnmarkedOrders(String symbol) {

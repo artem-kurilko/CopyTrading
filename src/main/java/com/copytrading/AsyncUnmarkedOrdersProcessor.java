@@ -10,10 +10,7 @@ import com.copytrading.sources.binance.futuresleaderboard.model.response.leaderb
 import com.copytrading.sources.binance.futuresleaderboard.model.response.position.Position;
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -29,13 +26,14 @@ import static com.copytrading.sources.binance.futuresleaderboard.FuturesLeaderbo
  * @see SimplePositionNotifier
  */
 public class AsyncUnmarkedOrdersProcessor {
-    private static final HashMap<String, String> copyTraderMap = new HashMap<>(); // stores symbol as key and trader id as value
+    // map to copy lead trader position, stores symbol as key and trader id as value
+    private static final HashMap<String, String> copyTraderMap = new HashMap<>();
+    private final int topTradersNum = 20;
     private final BinanceConnector client;
     private final LeadTraderDatabaseService db;
-    private final int topTradersNum = 20;
 
     private static final int delay = 5;
-    private static final int waitNewUnmarkedOrdersDelayMillis = 5000;
+    private static final int waitNewUnmarkedOrdersDelayMillis = 30000;
 
     public AsyncUnmarkedOrdersProcessor(boolean isProd) {
         client = new BinanceConnector(isProd);
@@ -53,25 +51,32 @@ public class AsyncUnmarkedOrdersProcessor {
         ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
         executorService.scheduleAtFixedRate(() -> {
             try {
-                // top traders, stores trader id as key and his position list as value
-                HashMap<String, List<Position>> leadTraderPositions = new HashMap<>();
+                // if there are no left orders then wait
                 List<String> unmarkedOrders =  db.getUnmarkedOrders();
-
-                // if there are no left orders then sleep
                 if (unmarkedOrders.isEmpty()) {
                     Thread.sleep(waitNewUnmarkedOrdersDelayMillis);
                     return;
                 }
 
+                // top traders, stores trader id as key and his position list as value
+                HashMap<String, List<Position>> leadTradersPositions = new HashMap<>();
+
                 // check if top traders have same position, if yes assign unmarked order to them
-                List<Leader> topTraders = validFuturesLeaderboard(PeriodType.MONTHLY, StatisticsType.PNL, topTradersNum);
-                for (Leader leader : topTraders) {
-                    List<Position> positions = getTraderPositions(leader.getEncryptedUid()).getData().getOtherPositionRetList();
-                    leadTraderPositions.put(leader.getEncryptedUid(), positions);
+                List<String> topTraderIds = validFuturesLeaderboard(PeriodType.MONTHLY, StatisticsType.PNL, topTradersNum)
+                        .stream().map(Leader::getEncryptedUid).toList();
+                for (String leaderId : topTraderIds) {
+                    List<Position> positions = getTraderPositions(leaderId).getData().getOtherPositionRetList();
+                    leadTradersPositions.put(leaderId, positions);
                     for (Position position : positions) {
                         String positionSymbol = position.getSymbol();
                         if (unmarkedOrders.stream().anyMatch(order -> order.equals(positionSymbol))) {
-                            copyTraderMap.put(positionSymbol, position.getTraderId());
+                            if (db.getLeaderIds().contains(leaderId)) {
+                                unmarkedOrders.remove(positionSymbol);
+                                db.removeOrderFromUnmarkedOrders(positionSymbol);
+                                db.saveNewTrader(leaderId, Collections.singletonList(positionSymbol));
+                            } else {
+                                copyTraderMap.putIfAbsent(positionSymbol, leaderId);
+                            }
                         }
                     }
                 }
@@ -79,7 +84,7 @@ public class AsyncUnmarkedOrdersProcessor {
                 // execute unmarked orders if trader did
                 if (!copyTraderMap.isEmpty()) {
                     copyTraderMap.forEach((symbol, traderId) -> {
-                        if (leadTraderPositions.get(traderId).stream().noneMatch(pos -> pos.getSymbol().equals(symbol))) {
+                        if (leadTradersPositions.get(traderId).stream().noneMatch(pos -> pos.getSymbol().equals(symbol))) {
                             executeOrder(symbol);
                         }
                     });
@@ -96,7 +101,7 @@ public class AsyncUnmarkedOrdersProcessor {
                         executeOrder(symbol);
                     } else if (position.getUnRealizedProfit() < 0) {
                         // if other trader's positions have the same side, wait until pnl gets better, if not execute on negative pnl :(
-                        List<Position> topTradersPositions = leadTraderPositions.values().stream().flatMap(Collection::stream).toList();
+                        List<Position> topTradersPositions = leadTradersPositions.values().stream().flatMap(Collection::stream).toList();
                         OrderSide mainSide = getMainOrderSide(topTradersPositions);
                         OrderSide currentSide = getPositionSide(position);
                         if (!mainSide.equals(currentSide)) {
@@ -105,6 +110,7 @@ public class AsyncUnmarkedOrdersProcessor {
                     }
                 });
             } catch (IOException | InterruptedException e) {
+                e.printStackTrace();
                 throw new RuntimeException(e);
             }
             },0, delay, TimeUnit.SECONDS);
@@ -120,6 +126,6 @@ public class AsyncUnmarkedOrdersProcessor {
         client.placeOrder(params);
         copyTraderMap.remove(symbol);
         db.removeOrderFromUnmarkedOrders(symbol);
-        log.info("Executed Symbol: " + symbol + " UPL: " + positionDto.getUnRealizedProfit());
+        log.info("Executed Unmarked Symbol: " + symbol + " UPL: " + positionDto.getUnRealizedProfit());
     }
 }
