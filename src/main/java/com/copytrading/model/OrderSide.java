@@ -1,11 +1,12 @@
 package com.copytrading.model;
 
 import com.copytrading.connector.model.PositionDto;
-import com.copytrading.sources.binance.copytradingleaderboard.model.response.positions.active.PositionData;
-import com.copytrading.sources.binance.futuresleaderboard.model.response.position.Position;
+import com.copytrading.sources.copytradingleaderboard.model.response.positions.active.PositionData;
+import com.copytrading.sources.futuresleaderboard.model.response.position.Position;
 
 import java.util.List;
 
+import static com.copytrading.sources.futuresleaderboard.FuturesLeaderboardScrapper.getTopTradersPositions;
 import static java.lang.Double.parseDouble;
 
 public enum OrderSide {
@@ -14,10 +15,10 @@ public enum OrderSide {
 
     /**
      * Returns main order side of positions, for example from sell, sell, buy, sell - main side is sell.
-     * @param positions list of {@link PositionDto} instances
      * @return order side
      */
-    public static OrderSide getMainOrderSide(List<Position> positions) {
+    public static OrderSide getMainOrderSide(int limit) {
+        List<Position> positions = getTopTradersPositions(limit);
         int sellSideCount = 0;
         int buySideCount = 0;
         for (Position position : positions) {
@@ -33,7 +34,8 @@ public enum OrderSide {
         } else if (sellSideCount > buySideCount) {
             return SELL;
         } else {
-            throw new RuntimeException("Exception in getMainOrderSide,  positions: " + positions);
+            limit += 5;
+            return getMainOrderSide(limit);
         }
     }
 

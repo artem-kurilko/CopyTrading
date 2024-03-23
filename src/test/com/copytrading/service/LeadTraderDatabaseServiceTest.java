@@ -79,7 +79,8 @@ public class LeadTraderDatabaseServiceTest {
 
         String newUid = UUID.randomUUID().toString();
         String newSymbol = "BNBUSDT";
-        db.saveNewTrader(newUid, List.of(newSymbol));
+        db.saveNewTrader(newUid);
+        db.saveOrderToTrader(newUid, newSymbol);
 
         HashMap<String, List<String>> res = db.getLeaderIdsAndOrders();
         assertEquals(3, res.size());

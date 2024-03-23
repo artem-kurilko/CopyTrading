@@ -1,9 +1,11 @@
 package com.copytrading;
 
 import com.copytrading.connector.BinanceConnector;
+import com.copytrading.connector.model.BalanceDto;
+import com.copytrading.model.OrderSide;
 import com.copytrading.service.LeadTraderDatabaseService;
-import com.copytrading.sources.binance.futuresleaderboard.model.request.StatisticsType;
-import com.copytrading.sources.binance.futuresleaderboard.model.response.position.Position;
+import com.copytrading.sources.futuresleaderboard.model.request.StatisticsType;
+import com.copytrading.sources.futuresleaderboard.model.response.position.Position;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -11,9 +13,12 @@ import java.util.*;
 
 import static com.copytrading.SimplePositionNotifier.sortPositions;
 import static com.copytrading.SimplePositionNotifier.tradersCheck;
-import static com.copytrading.sources.binance.futuresleaderboard.FuturesLeaderboardScrapper.getNextTopTrader;
-import static com.copytrading.sources.binance.futuresleaderboard.FuturesLeaderboardScrapper.getTradersBaseInfo;
-import static com.copytrading.sources.binance.futuresleaderboard.model.request.PeriodType.MONTHLY;
+import static com.copytrading.model.BaseAsset.USDT;
+import static com.copytrading.model.OrderSide.getPositionSide;
+import static com.copytrading.service.OrderConverterService.getMarketOrderParams;
+import static com.copytrading.sources.futuresleaderboard.FuturesLeaderboardScrapper.getNextTopTrader;
+import static com.copytrading.sources.futuresleaderboard.FuturesLeaderboardScrapper.getTradersBaseInfo;
+import static com.copytrading.sources.futuresleaderboard.model.request.PeriodType.MONTHLY;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -23,6 +28,25 @@ import static org.junit.jupiter.api.Assertions.*;
 public class SimplePositionNotifierTest {
     private static final boolean mode = false;
     private static final LeadTraderDatabaseService db = new LeadTraderDatabaseService(mode);
+    public static final BinanceConnector conn = new BinanceConnector(false);
+
+    @Test
+    public void testSome() {
+        BalanceDto balanceDto = conn.balance(USDT);
+        double walletBalance = balanceDto.getBalance() + balanceDto.getCrossUnPnl();
+        int margin = (int) walletBalance / 15;
+
+        String symbol = "SOLUSDT";
+        int leverage = 4;
+        double amount = margin * leverage / 203.3;
+
+        LinkedHashMap<String, Object> params = getMarketOrderParams(
+                symbol,
+                OrderSide.BUY.name(),
+                amount
+        );
+        System.out.println(params);
+    }
 
     @Test
     public void getIdsDoesntExistTest() throws IOException {
@@ -31,18 +55,18 @@ public class SimplePositionNotifierTest {
         List<String> ids = db.getLeaderIds();
         List<String> invalidIds = List.of("B488164865E9B70D785A32CE8DCD5BC8", "FDA88B2379822A377FBB33F1DD392898");
         if (ids.isEmpty()) {
-            ids = new ArrayList<>(Arrays.asList(
+            ids = new ArrayList<>(List.of(
                     "ACD6F840DE4A5C87C77FB7A49892BB35"
             ));
             ids.addAll(invalidIds);
-            ids.forEach(id -> db.saveNewTrader(id, Collections.emptyList()));
+            ids.forEach(db::saveNewTrader);
         }
 
         String validId = "";
         while (ids.size() < numOfLeadTraders) {
             validId = getNextTopTrader(ids, MONTHLY, StatisticsType.PNL);
             ids.add(validId);
-            db.saveNewTrader(validId, Collections.emptyList());
+            db.saveNewTrader(validId);
         }
         tradersCheck(ids);
 

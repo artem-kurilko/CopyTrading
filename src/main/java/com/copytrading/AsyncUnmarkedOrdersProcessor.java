@@ -4,10 +4,10 @@ import com.copytrading.connector.BinanceConnector;
 import com.copytrading.connector.model.PositionDto;
 import com.copytrading.model.OrderSide;
 import com.copytrading.service.LeadTraderDatabaseService;
-import com.copytrading.sources.binance.futuresleaderboard.model.request.PeriodType;
-import com.copytrading.sources.binance.futuresleaderboard.model.request.StatisticsType;
-import com.copytrading.sources.binance.futuresleaderboard.model.response.leaderboard.Leader;
-import com.copytrading.sources.binance.futuresleaderboard.model.response.position.Position;
+import com.copytrading.sources.futuresleaderboard.model.request.PeriodType;
+import com.copytrading.sources.futuresleaderboard.model.request.StatisticsType;
+import com.copytrading.sources.futuresleaderboard.model.response.leaderboard.Leader;
+import com.copytrading.sources.futuresleaderboard.model.response.position.Position;
 
 import java.io.IOException;
 import java.util.*;
@@ -18,8 +18,8 @@ import java.util.concurrent.TimeUnit;
 import static com.copytrading.SimplePositionNotifier.log;
 import static com.copytrading.model.OrderSide.*;
 import static com.copytrading.service.OrderConverterService.getMarketOrderParams;
-import static com.copytrading.sources.binance.futuresleaderboard.FuturesLeaderboardScrapper.getTraderPositions;
-import static com.copytrading.sources.binance.futuresleaderboard.FuturesLeaderboardScrapper.validFuturesLeaderboard;
+import static com.copytrading.sources.futuresleaderboard.FuturesLeaderboardScrapper.getTraderPositions;
+import static com.copytrading.sources.futuresleaderboard.FuturesLeaderboardScrapper.validFuturesLeaderboard;
 
 /**
  * It's async class to proceed left orders, when lead trader doesn't show his positions no more, but we already copied them.
@@ -73,7 +73,8 @@ public class AsyncUnmarkedOrdersProcessor {
                             if (db.getLeaderIds().contains(leaderId)) {
                                 unmarkedOrders.remove(positionSymbol);
                                 db.removeOrderFromUnmarkedOrders(positionSymbol);
-                                db.saveNewTrader(leaderId, Collections.singletonList(positionSymbol));
+                                db.saveNewTrader(leaderId);
+                                db.saveOrderToTrader(leaderId, positionSymbol);
                             } else {
                                 copyTraderMap.putIfAbsent(positionSymbol, leaderId);
                             }
@@ -85,7 +86,7 @@ public class AsyncUnmarkedOrdersProcessor {
                 if (!copyTraderMap.isEmpty()) {
                     copyTraderMap.forEach((symbol, traderId) -> {
                         if (leadTradersPositions.get(traderId).stream().noneMatch(pos -> pos.getSymbol().equals(symbol))) {
-                            executeOrder(symbol);
+                            executeOrder(symbol, traderId);
                         }
                     });
                 }
@@ -98,14 +99,13 @@ public class AsyncUnmarkedOrdersProcessor {
                 unmarkedOrders.forEach((symbol) -> {
                     PositionDto position = currentPositions.get(symbol);
                     if (position.getUnRealizedProfit() >= 0) {
-                        executeOrder(symbol);
+                        executeOrder(symbol, null);
                     } else if (position.getUnRealizedProfit() < 0) {
                         // if other trader's positions have the same side, wait until pnl gets better, if not execute on negative pnl :(
-                        List<Position> topTradersPositions = leadTradersPositions.values().stream().flatMap(Collection::stream).toList();
-                        OrderSide mainSide = getMainOrderSide(topTradersPositions);
+                        OrderSide mainSide = getMainOrderSide(5);
                         OrderSide currentSide = getPositionSide(position);
                         if (!mainSide.equals(currentSide)) {
-                            executeOrder(symbol);
+                            executeOrder(symbol, null);
                         }
                     }
                 });
@@ -116,7 +116,7 @@ public class AsyncUnmarkedOrdersProcessor {
             },0, delay, TimeUnit.SECONDS);
     }
 
-    private void executeOrder(String symbol) {
+    private void executeOrder(String symbol, String traderId) {
         PositionDto positionDto = client.positionInfo(symbol);
         LinkedHashMap<String, Object> params = getMarketOrderParams(
                 symbol,
@@ -126,6 +126,6 @@ public class AsyncUnmarkedOrdersProcessor {
         client.placeOrder(params);
         copyTraderMap.remove(symbol);
         db.removeOrderFromUnmarkedOrders(symbol);
-        log.info("Executed Unmarked Symbol: " + symbol + " UPL: " + positionDto.getUnRealizedProfit());
+        log.info("Executed Unmarked Symbol: " + symbol + " UPL: " + positionDto.getUnRealizedProfit() + " Trader: " + traderId);
     }
 }

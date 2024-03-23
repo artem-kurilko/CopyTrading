@@ -1,20 +1,13 @@
 package com.copytrading;
 
 import com.copytrading.service.LeadTraderDatabaseService;
-import com.copytrading.sources.binance.futuresleaderboard.model.request.PeriodType;
-import com.copytrading.sources.binance.futuresleaderboard.model.request.StatisticsType;
-import com.copytrading.sources.binance.futuresleaderboard.model.response.leaderboard.Leader;
-import com.copytrading.sources.binance.futuresleaderboard.model.response.position.Position;
+import com.copytrading.sources.futuresleaderboard.model.response.position.Position;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
-import static com.copytrading.model.OrderSide.getMainOrderSide;
-import static com.copytrading.sources.binance.futuresleaderboard.FuturesLeaderboardScrapper.validFuturesLeaderboard;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Test class for async unmarked order's processor.

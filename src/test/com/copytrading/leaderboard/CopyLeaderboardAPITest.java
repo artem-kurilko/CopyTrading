@@ -1,16 +1,16 @@
 package com.copytrading.leaderboard;
 
-import com.copytrading.sources.binance.copytradingleaderboard.model.request.FilterType;
-import com.copytrading.sources.binance.copytradingleaderboard.model.request.PositionHistoryParams;
-import com.copytrading.sources.binance.copytradingleaderboard.model.request.TimeRange;
-import com.copytrading.sources.binance.copytradingleaderboard.model.response.details.TraderData;
-import com.copytrading.sources.binance.copytradingleaderboard.model.response.leaderboard.CopyTradingLeaderboard;
-import com.copytrading.sources.binance.copytradingleaderboard.model.response.leaderboard.TraderInfo;
+import com.copytrading.sources.copytradingleaderboard.model.request.FilterType;
+import com.copytrading.sources.copytradingleaderboard.model.request.PositionHistoryParams;
+import com.copytrading.sources.copytradingleaderboard.model.request.TimeRange;
+import com.copytrading.sources.copytradingleaderboard.model.response.details.TraderData;
+import com.copytrading.sources.copytradingleaderboard.model.response.leaderboard.CopyTradingLeaderboard;
+import com.copytrading.sources.copytradingleaderboard.model.response.leaderboard.TraderInfo;
 
 import java.io.IOException;
 import java.util.List;
 
-import static com.copytrading.sources.binance.copytradingleaderboard.CopyLeaderboardScrapper.*;
+import static com.copytrading.sources.copytradingleaderboard.CopyLeaderboardScrapper.*;
 
 public class CopyLeaderboardAPITest {
 

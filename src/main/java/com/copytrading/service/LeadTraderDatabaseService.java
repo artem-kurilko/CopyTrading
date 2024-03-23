@@ -1,5 +1,7 @@
 package com.copytrading.service;
 
+import com.copytrading.connector.BinanceConnector;
+import com.copytrading.connector.model.PositionDto;
 import com.mongodb.MongoClient;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
@@ -13,10 +15,33 @@ import static com.copytrading.util.ConfigUtils.getProperty;
  * Simple service class to store lead trader id and ids of orders copied from him.
  */
 public class LeadTraderDatabaseService {
+    private final BinanceConnector client;
     private final boolean isProd;
 
     public LeadTraderDatabaseService(boolean isProd) {
         this.isProd = isProd;
+        this.client = new BinanceConnector(isProd);
+    }
+
+    /**
+     * Checks that unmarked and trader orders exist as active positions, if not remove from db.
+     */
+    public void actualizeDB() {
+        List<PositionDto> activePositions = client.positionInfo();
+        List<String> unmarkedOrders = getUnmarkedOrders();
+        unmarkedOrders.forEach(ord -> {
+            if (activePositions.stream().noneMatch(pos -> pos.getSymbol().equals(ord))) {
+                removeOrderFromUnmarkedOrders(ord);
+            }
+        });
+        HashMap<String, List<String>> tradersOrders = getLeaderIdsAndOrders();
+        for (List<String> orders : tradersOrders.values()) {
+            orders.forEach(ord -> {
+                if (activePositions.stream().noneMatch(pos -> pos.getSymbol().equals(ord))) {
+                    removeOrderFromTrader(ord);
+                }
+            });
+        }
     }
 
     public List<String> getLeaderIds() {
@@ -68,17 +93,23 @@ public class LeadTraderDatabaseService {
         throw new IllegalArgumentException("Trader with symbol: " + symbol + " not found.");
     }
 
-    public void saveNewTrader(String id, List<String> symbols) {
+    public void saveNewTrader(String id) {
         MongoClient mongo = new MongoClient( "localhost" , 27017 );
         MongoCollection<Document> collection = getLeadTraderCollection(mongo);
+        FindIterable<Document> iterDoc = collection.find();
+        for (Document document : iterDoc) {
+            if (document.getString("id").equals(id)) {
+                return;
+            }
+        }
         Document document = new Document();
         document.append("id", id);
-        document.append("orders", symbols);
+        document.append("orders", Collections.emptyList());
         collection.insertOne(document);
         mongo.close();
     }
 
-    public void removeOrderFromTrader(String symbol) {
+    public String removeOrderFromTrader(String symbol) {
         MongoClient mongo = new MongoClient( "localhost" , 27017 );
         MongoCollection<Document> collection = getLeadTraderCollection(mongo);
         FindIterable<Document> iterDoc = collection.find();
@@ -87,12 +118,13 @@ public class LeadTraderDatabaseService {
             if (positions.contains(symbol)) {
                 List<String> updatePositions = new ArrayList<>(positions);
                 updatePositions.remove(symbol);
+                String traderId = document.getString("id");
                 Document updatedDocument = new Document()
-                        .append("id", document.getString("id"))
+                        .append("id", traderId)
                         .append("orders", updatePositions);
                 collection.replaceOne(document, updatedDocument);
                 mongo.close();
-                return;
+                return traderId;
             }
         }
         throw new IllegalArgumentException("Trader with symbol: " + symbol + " not found.");
@@ -214,10 +246,10 @@ public class LeadTraderDatabaseService {
     private MongoCollection<Document> getLeadTraderCollection(MongoClient mongo) {
         String database, collection;
         if (isProd) {
-            database = getProperty("mongo.database");
+            database = getProperty("mongo.database.simple");
             collection = getProperty("mongo.collection.simple");
         } else {
-            database = getProperty("test.mongo.database");
+            database = getProperty("test.mongo.database.simple");
             collection = getProperty("test.mongo.collection.simple");
         }
         return mongo.getDatabase(database).getCollection(collection);
@@ -226,10 +258,10 @@ public class LeadTraderDatabaseService {
     private MongoCollection<Document> getUnmarkedOrdersCollection(MongoClient mongo) {
         String database, collection;
         if (isProd) {
-            database = getProperty("mongo.database");
+            database = getProperty("mongo.database.simple");
             collection = getProperty("mongo.collection.simple.unmarked");
         } else {
-            database = getProperty("test.mongo.database");
+            database = getProperty("test.mongo.database.simple");
             collection = getProperty("test.mongo.collection.simple.unmarked");
         }
         return mongo.getDatabase(database).getCollection(collection);

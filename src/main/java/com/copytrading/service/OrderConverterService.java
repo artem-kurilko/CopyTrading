@@ -3,6 +3,7 @@ package com.copytrading.service;
 import com.copytrading.connector.BinanceConnector;
 import com.copytrading.connector.model.OrderType;
 import com.copytrading.connector.model.TimeInForce;
+import com.copytrading.exception.InsufficientMarginException;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -29,6 +30,9 @@ public class OrderConverterService {
     private static LinkedHashMap<String, Object> getBaseParams(String symbol, String side, double amount) {
         int symbolPrecision = symbolTickSizeMap.get(symbol);
         double quantity = round(amount, symbolPrecision);
+        if (quantity == 0) {
+            throw new InsufficientMarginException("INSUFFICIENT MARGIN FOR " + symbol);
+        }
         LinkedHashMap<String,Object> params = new LinkedHashMap<>();
         params.put("symbol", symbol);
         params.put("side", side);

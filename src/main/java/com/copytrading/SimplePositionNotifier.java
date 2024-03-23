@@ -1,18 +1,23 @@
 package com.copytrading;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.LoggerContext;
 import com.binance.connector.futures.client.exceptions.BinanceClientException;
 import com.binance.connector.futures.client.exceptions.BinanceConnectorException;
 import com.copytrading.connector.BinanceConnector;
 import com.copytrading.connector.model.BalanceDto;
 import com.copytrading.connector.model.OrderDto;
 import com.copytrading.connector.model.PositionDto;
+import com.copytrading.exception.InsufficientMarginException;
 import com.copytrading.model.OrderSide;
 import com.copytrading.service.LeadTraderDatabaseService;
-import com.copytrading.sources.binance.futuresleaderboard.model.request.StatisticsType;
-import com.copytrading.sources.binance.futuresleaderboard.model.response.position.Position;
+import com.copytrading.sources.futuresleaderboard.model.request.StatisticsType;
+import com.copytrading.sources.futuresleaderboard.model.response.leaderboard.Leader;
+import com.copytrading.sources.futuresleaderboard.model.response.position.Position;
 import com.google.gson.JsonSyntaxException;
 import lombok.SneakyThrows;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.SocketException;
@@ -31,21 +36,21 @@ import static com.copytrading.model.BaseAsset.USDT;
 import static com.copytrading.model.OrderSide.*;
 import static com.copytrading.service.OrderConverterService.getMarketOrderParams;
 import static com.copytrading.service.OrderConverterService.round;
-import static com.copytrading.sources.binance.futuresleaderboard.FuturesLeaderboardScrapper.*;
-import static com.copytrading.sources.binance.futuresleaderboard.model.request.PeriodType.MONTHLY;
+import static com.copytrading.sources.futuresleaderboard.FuturesLeaderboardScrapper.*;
+import static com.copytrading.sources.futuresleaderboard.model.request.PeriodType.MONTHLY;
 
 /**
  * Simple bot alternative.
  * This bot just iterate via copy traders orders and place position with fixed balance.
  *
- * @author Artemii Kurilko
+ * @author Artemii Lepshokov
  * @version 2.4
  */
 public class SimplePositionNotifier {
     /**
      * Trading mode: testEnv=false, prodEnv=true
      */
-    private static final boolean mode = false;
+    private static final boolean mode = true;
 
     // common
     private static final BinanceConnector client = new BinanceConnector(mode);
@@ -55,8 +60,7 @@ public class SimplePositionNotifier {
     public static final Logger log = initLogger();
 
     // trading
-    private static final int numOfLeadTraders = 4;
-    private static int FIXED_MARGIN_PER_ORDER;
+    private static final int numOfLeadTraders = 5;
     private static final int maxNumberOfOrders = 15;
     // max price change in percentage, i.e. lead trader position long, and price raised to 3 percentage then don't copy
     private static final int maxProfitAllowed = 3;
@@ -68,6 +72,11 @@ public class SimplePositionNotifier {
 
     @SneakyThrows
     public static void main(String[] args) {
+        // disable mongo info logs
+        ((LoggerContext) LoggerFactory.getILoggerFactory()).getLogger("org.mongodb.driver").setLevel(Level.ERROR);
+
+        // actualize that mark and unmarked orders exist
+        db.actualizeDB();
         leftOrdersProcessor.proceedLeftOrders();
         List<String> ids = getIds();
 
@@ -89,9 +98,17 @@ public class SimplePositionNotifier {
                                 Thread.sleep(30000);
                             }
                         }
+                    } catch (NullPointerException ex) {
+                        if (ex.getMessage().contains("return value of \"com.copytrading.sources.binance.futuresleaderboard.model.response.position.TraderPositions.getData()\" is null")) {
+                            System.out.println("EXCEPTION: Futures leaderboard positions cookies invalid.");
+                            executorService.shutdown();
+                        } else {
+                            log.info(ex.getMessage());
+                            executorService.shutdown();
+                        }
                     } catch (Exception e) {
+                        log.info(e.getMessage());
                         executorService.shutdown();
-                        throw new RuntimeException(e);
                     }
                 }, 0, delay, TimeUnit.SECONDS);
     }
@@ -99,20 +116,13 @@ public class SimplePositionNotifier {
     private static List<String> getIds() throws IOException {
         List<String> ids = db.getLeaderIds();
         if (ids.isEmpty()) {
-            ids = new ArrayList<>(Arrays.asList(
-//                    "1FB04E31362DEED9CAA1C7EF8A771B8A",
-                    "ACD6F840DE4A5C87C77FB7A49892BB35",
-                    "F3D5DFEBBB2FDBC5891FD4663BCA556F",
-                    "E921F42DCD4D9F6ECC0DFCE3BAB1D11A",
-                    "3BAFAFCA68AB85929DF777C316F18C54"
-            ));
-            ids.forEach(id -> db.saveNewTrader(id, Collections.emptyList()));
+            ids = new ArrayList<>(validFuturesLeaderboard(MONTHLY, StatisticsType.PNL, numOfLeadTraders).stream().map(Leader::getEncryptedUid).toList());
+            ids.forEach(db::saveNewTrader);
         }
-
         while (ids.size() < numOfLeadTraders) {
             String nextId = getNextTopTrader(ids, MONTHLY, StatisticsType.PNL);
             ids.add(nextId);
-            db.saveNewTrader(nextId, Collections.emptyList());
+            db.saveNewTrader(nextId);
         }
         tradersCheck(ids);
         return ids;
@@ -158,7 +168,7 @@ public class SimplePositionNotifier {
         // recalculate fixed_margin_per_order with each iteration, to make it more flexible to changes in balance
         BalanceDto balanceDto = client.balance(USDT);
         double walletBalance = balanceDto.getBalance() + balanceDto.getCrossUnPnl();
-        FIXED_MARGIN_PER_ORDER = (int) walletBalance / maxNumberOfOrders;
+        int FIXED_MARGIN_PER_ORDER = (int) walletBalance / maxNumberOfOrders;
         double availableBalance = balanceDto.getAvailableBalance();
 
         // if balance is limited then start with ones where entry price closer to mark price
@@ -170,7 +180,7 @@ public class SimplePositionNotifier {
                     emulateOrder(positionData, margin);
                     availableBalance -= FIXED_MARGIN_PER_ORDER;
                 } catch (Exception e) {
-                    log.info("ERROR: " + e.getMessage() + " Symbol: " + positionData.getSymbol() + " Position: " + positionData);
+                    log.info("EXCEPTION: " + e.getMessage() + " Symbol: " + positionData.getSymbol() + " Position: " + positionData);
                     throw e;
                 }
             }
@@ -216,25 +226,24 @@ public class SimplePositionNotifier {
 
         if (symbol.equals("ETHBTC")) {
             // double minNotional = 0.001;
-            System.out.println("==================================");
-            System.out.println("ETHBTC logic doesn't support");
-            System.out.println("==================================");
+            System.out.println("==== EXCEPTION: ETHBTC logic doesn't support");
             return;
         }
-        LinkedHashMap<String, Object> params = getMarketOrderParams(
-                symbol,
-                getPositionSide(position).name(),
-                amount
-        );
+
         try {
+            LinkedHashMap<String, Object> params = getMarketOrderParams(
+                    symbol,
+                    getPositionSide(position).name(),
+                    amount
+            );
             OrderDto response = client.placeOrder(params);
             db.saveOrderToTrader(position.getTraderId(), symbol);
-            log.info("Emulated order. Symbol: " + response.getSymbol() + " Margin: $" + round(FIXED_MARGIN_PER_ORDER, 2));
+            log.info("Emulated order. Symbol: " + response.getSymbol() + " Margin: $" + round(margin, 2) + " Trader: " + position.getTraderId());
+        } catch (InsufficientMarginException ex) {
+            System.out.println("==== EXCEPTION: " + ex.getMessage());
         } catch (BinanceClientException clientException) {
             if (clientException.getMessage().contains("Order's notional must be no smaller")) {
-                System.out.println("==============================================================");
-                System.out.println("Exception: Symbol: " + symbol + " " + clientException.getMessage());
-                System.out.println("==============================================================");
+                System.out.println("==== EXCEPTION: Symbol: " + symbol + " " + clientException.getMessage());
             } else {
                 throw clientException;
             }
@@ -249,8 +258,8 @@ public class SimplePositionNotifier {
                 Math.abs(positionDto.getPositionAmt())
         );
         client.placeOrder(params);
-        db.removeOrderFromTrader(symbol);
-        log.info("Executed Symbol: " + symbol + " UPL: " + positionDto.getUnRealizedProfit());
+        String traderId = db.removeOrderFromTrader(symbol);
+        log.info("Executed Symbol: " + symbol + " UPL: " + positionDto.getUnRealizedProfit() + " TraderId: " + traderId);
     }
 
     /**
@@ -264,13 +273,13 @@ public class SimplePositionNotifier {
         List<String> iterateIds = new ArrayList<>(tradersIds);
         boolean res = true;
         for (String id : iterateIds) {
-            if (!getTradersBaseInfo(id).getData().isPositionShared()) {
+            if (!isLeadTraderValid(id)) {
                 res = false;
                 // replace lead trader id
                 String leadId = getNextTopTrader(tradersIds, MONTHLY, StatisticsType.PNL);
                 tradersIds.remove(id);
                 tradersIds.add(leadId);
-                db.saveNewTrader(leadId, Collections.emptyList());
+                db.saveNewTrader(leadId);
 
                 // transfer trader orders to unmarked orders
                 List<String> unmarkedOrders = db.getAndRemoveTradersSymbols(id);
