@@ -6,3 +6,5 @@
 - make logic to store positions✅
 - overwrite emulate and execute methods
 - test add 20 traders and their trades
+
+Balance: $95.3794 24/03/24 19:20

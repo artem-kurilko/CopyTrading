@@ -8,6 +8,7 @@ import lombok.Data;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class PositionData {
     private String id;
+    private String traderId;
     private String symbol;
     private String collateral;
     private String positionAmount;

@@ -94,21 +94,17 @@ public class SimplePositionNotifier {
                                      BinanceConnectorException |
                                      JsonSyntaxException |
                                      SocketException ex) {
-                                ex.printStackTrace();
+                                handleException(ex);
                                 Thread.sleep(30000);
                             }
                         }
                     } catch (NullPointerException ex) {
                         if (ex.getMessage().contains("return value of \"com.copytrading.sources.binance.futuresleaderboard.model.response.position.TraderPositions.getData()\" is null")) {
-                            System.out.println("EXCEPTION: Futures leaderboard positions cookies invalid.");
-                            executorService.shutdown();
-                        } else {
-                            log.info(ex.getMessage());
-                            executorService.shutdown();
+                            log.info("EXCEPTION SHUTDOWN: Futures leaderboard positions cookies invalid.");
                         }
+                        handleException(ex);
                     } catch (Exception e) {
-                        log.info(e.getMessage());
-                        executorService.shutdown();
+                        handleException(e);
                     }
                 }, 0, delay, TimeUnit.SECONDS);
     }
@@ -175,14 +171,9 @@ public class SimplePositionNotifier {
         if (availableBalance < positionsToEmulate.size() * FIXED_MARGIN_PER_ORDER) {
             List<Position> sortedPositions = sortPositions(positionsToEmulate);
             for (Position positionData : sortedPositions) {
-                try {
-                    double margin = availableBalance >= FIXED_MARGIN_PER_ORDER ? FIXED_MARGIN_PER_ORDER : availableBalance;
-                    emulateOrder(positionData, margin);
-                    availableBalance -= FIXED_MARGIN_PER_ORDER;
-                } catch (Exception e) {
-                    log.info("EXCEPTION: " + e.getMessage() + " Symbol: " + positionData.getSymbol() + " Position: " + positionData);
-                    throw e;
-                }
+                double margin = availableBalance >= FIXED_MARGIN_PER_ORDER ? FIXED_MARGIN_PER_ORDER : availableBalance;
+                emulateOrder(positionData, margin);
+                availableBalance -= FIXED_MARGIN_PER_ORDER;
             }
         } else {
             positionsToEmulate.forEach(pos -> emulateOrder(pos, FIXED_MARGIN_PER_ORDER));
@@ -360,6 +351,10 @@ public class SimplePositionNotifier {
         });
         logger.addHandler(fh);
         return logger;
+    }
+
+    private static void handleException(Exception e) {
+        e.printStackTrace();
     }
 
 }

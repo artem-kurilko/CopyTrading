@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.util.List;
 
 public class OkxLeaderboardScrapper {
+    private static final InstType instType = InstType.SWAP;
     private static final String baseUrl = "https://www.okx.com/priapi/v5/ecotrade/public/";
     private static final OkxLeaderboardAPI client = getOkxLeaderboardClient();
 
@@ -28,14 +29,18 @@ public class OkxLeaderboardScrapper {
         return response.getData().get(0);
     }
 
-    public static List<PositionInfo> activePositions(String traderId, InstType instType) throws IOException {
+    public static List<PositionInfo> currentPositions(String traderId) throws IOException {
         Call<Response<PositionInfo>> apiCall = client.activePositions(instType, traderId, String.valueOf(System.currentTimeMillis()));
         Response<PositionInfo> response = apiCall.execute().body();
         assert response != null;
-        return response.getData();
+        return response.getData().stream()
+                .peek(pos -> pos.setInstId(pos.getInstId()
+                        .replace("-", "")
+                        .replace("SWAP", "")))
+                .toList();
     }
 
-    public static List<PositionInfo> positionHistory(String traderId, InstType instType, int size) throws IOException {
+    public static List<PositionInfo> positionHistory(String traderId, int size) throws IOException {
         Call<Response<PositionInfo>> apiCall = client.positionsHistory(instType, traderId, size, String.valueOf(System.currentTimeMillis()));
         Response<PositionInfo> response = apiCall.execute().body();
         assert response != null;
@@ -55,5 +60,4 @@ public class OkxLeaderboardScrapper {
                 .build();
         return retrofit.create(OkxLeaderboardAPI.class);
     }
-
 }

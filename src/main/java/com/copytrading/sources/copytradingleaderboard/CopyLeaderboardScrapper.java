@@ -1,5 +1,6 @@
 package com.copytrading.sources.copytradingleaderboard;
 
+import com.copytrading.sources.copytradingleaderboard.model.request.*;
 import com.copytrading.sources.copytradingleaderboard.model.response.ResponseEntity;
 import com.copytrading.sources.copytradingleaderboard.model.response.details.TraderDetails;
 import com.copytrading.sources.copytradingleaderboard.model.response.leaderboard.CopyTradingLeaderboard;
@@ -8,7 +9,6 @@ import com.copytrading.sources.copytradingleaderboard.model.response.performance
 import com.copytrading.sources.copytradingleaderboard.model.response.positions.active.ActivePositions;
 import com.copytrading.sources.copytradingleaderboard.model.response.positions.active.PositionData;
 import com.copytrading.sources.copytradingleaderboard.model.response.positions.history.PositionHistory;
-import com.copytrading.sources.copytradingleaderboard.model.request.*;
 import okhttp3.OkHttpClient;
 import retrofit2.Call;
 import retrofit2.Retrofit;
@@ -92,6 +92,7 @@ public class CopyLeaderboardScrapper {
         List<PositionData> positionData = response.getData();
         for (PositionData position : positionData) {
             if (parseDouble(position.getPositionAmount()) != 0) {
+                position.setTraderId(portfolioId);
                 activePositions.add(position);
             }
         }
@@ -135,5 +136,4 @@ public class CopyLeaderboardScrapper {
                 .build();
         return retrofit.create(CopyLeaderboardAPI.class);
     }
-
 }

@@ -16,6 +16,11 @@ public class PaperTestnetRunner {
     }
 
     public static void runAlgorithm() {
+        // Main algorithm
+        // we get for example 30 top traders from each source, and save them to db
+
+
+
         // write main algorithm
         // write methods to emulate and execute
         // work with db:
@@ -24,6 +29,9 @@ public class PaperTestnetRunner {
 
 
 
+    }
+
+    static class LeadTraderDto {
     }
 
 }

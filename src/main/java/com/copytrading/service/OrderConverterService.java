@@ -28,7 +28,11 @@ public class OrderConverterService {
     }
 
     private static LinkedHashMap<String, Object> getBaseParams(String symbol, String side, double amount) {
-        int symbolPrecision = symbolTickSizeMap.get(symbol);
+        String validSymbol = symbol;
+        if (validSymbol.contains("_")) {
+            validSymbol = symbol.split("_")[0];
+        }
+        int symbolPrecision = symbolTickSizeMap.get(validSymbol);
         double quantity = round(amount, symbolPrecision);
         if (quantity == 0) {
             throw new InsufficientMarginException("INSUFFICIENT MARGIN FOR " + symbol);

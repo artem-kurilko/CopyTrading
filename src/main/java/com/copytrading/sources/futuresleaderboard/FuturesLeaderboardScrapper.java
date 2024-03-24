@@ -49,7 +49,7 @@ public class FuturesLeaderboardScrapper {
             if (limit == 0) {
                 break;
             }
-            if (isPositionShred(leader.getEncryptedUid())) {
+            if (isPositionShared(leader.getEncryptedUid())) {
                 leadersList.add(leader);
                 limit--;
             }
@@ -84,27 +84,6 @@ public class FuturesLeaderboardScrapper {
             }
         }
         return leadersList;
-    }
-
-    @SneakyThrows
-    public static List<String> getInvalidTradersWithClosedPositions(int num) {
-        List<String> res = new LinkedList<>();
-        LeaderboardParams param = LeaderboardParams.builder()
-                .isShared(false)
-                .periodType(PeriodType.MONTHLY)
-                .statisticsType(StatisticsType.PNL)
-                .build();
-        Call<FuturesLeaderboard> response = client.futuresLeaderboard(param);
-        FuturesLeaderboard leaderboard = response.execute().body();
-        for (Leader leader : leaderboard.getData()) {
-            if (num == 0) {
-                break;
-            }
-            if (!isPositionShred(leader.getEncryptedUid())) {
-                res.add(leader.getEncryptedUid());
-                num--;
-            }
-        } return res;
     }
 
     private static FuturesLeaderboard getFuturesLeaderboard(PeriodType period, StatisticsType type) throws IOException {
@@ -168,10 +147,10 @@ public class FuturesLeaderboardScrapper {
                 }
             }
         }
-        return isPositionShred(id);
+        return isPositionShared(id);
     }
 
-    public static boolean isPositionShred(String id) throws IOException {
+    public static boolean isPositionShared(String id) throws IOException {
         TraderBaseInfo traderInfo = getTradersBaseInfo(id).getData();
         return traderInfo.isPositionShared();
     }

@@ -1,6 +1,7 @@
 package com.copytrading.model;
 
 public enum Exchange {
-    BINANCE,
+    BINANCE_LEADERBOARD,
+    BINANCE_COPYTRADING,
     OKX
 }

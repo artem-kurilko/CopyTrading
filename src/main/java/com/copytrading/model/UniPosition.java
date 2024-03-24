@@ -7,11 +7,13 @@ import lombok.Data;
 @Builder
 public class UniPosition {
     private String id;
+    private Exchange exchange;
     private String traderId;
-    private double entryPrice;
+    private String symbol;
+    private Double entryPrice;
     private Double markPrice;
     private Double pnl;
     private Double sz;
-    private long uTime;
-    private long cTime;
+    private Long uTime;
+    private Long cTime;
 }
