@@ -44,6 +44,18 @@ public class BinanceConnector {
         return new JSONObject(result).getDouble("markPrice");
     }
 
+    public HashMap<String, Double> getMarkPrices() {
+        HashMap<String, Double> markPrices = new HashMap<>();
+        UMFuturesClientImpl publicClient = new UMFuturesClientImpl();
+        LinkedHashMap<String, Object> parameters = new LinkedHashMap<>();
+        JSONArray res = new JSONArray(publicClient.market().markPrice(parameters));
+        for (int i = 0; i < res.length(); i++) {
+            JSONObject markPrice = res.getJSONObject(i);
+            markPrices.put(markPrice.getString("symbol"), markPrice.getDouble("markPrice"));
+        }
+        return markPrices;
+    }
+
     public List<PositionDto> positionInfo() {
         LinkedHashMap<String, Object> parameters = new LinkedHashMap<>();
         String result = client.account().positionInformation(parameters);

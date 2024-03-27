@@ -1,7 +1,7 @@
 package com.copytrading.service;
 
-import com.copytrading.model.OrderState;
 import com.copytrading.model.PositionSide;
+import com.copytrading.model.UniPosition;
 import com.mongodb.MongoClient;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
@@ -14,22 +14,22 @@ import static com.copytrading.util.ConfigUtils.getProperty;
 /**
  * Service class for storing orders info with trader id.
  */
-public class OrdersStateDatabaseService {
+public class TestnetDatabaseService {
     private final boolean isProd;
 
-    public OrdersStateDatabaseService(boolean isProd) {
+    public TestnetDatabaseService(boolean isProd) {
         this.isProd = isProd;
     }
 
-    public Set<String> retrieveTradersIds() {
+    /*public Set<String> retrieveTradersIds() {
         Set<String> ids = new HashSet<>();
-        List<OrderState> orders = retrieveOrdersState();
+        List<UniPosition> orders = retrieveOrdersState();
         orders.forEach(ord -> ids.add(ord.getTraderId()));
         return ids;
     }
 
     @SafeVarargs
-    public final void saveOrderState(List<OrderState>... orders) {
+    public final void saveOrderState(List<UniPosition>... orders) {
         try {
             MongoClient mongo = new MongoClient( "localhost" , 27017 );
             MongoCollection<Document> collection = getCollection(mongo);
@@ -37,7 +37,7 @@ public class OrdersStateDatabaseService {
             collection.deleteMany(new Document());
             // save all
             List<Document> documentList = new ArrayList<>();
-            for (List<OrderState> orderStateList : orders) {
+            for (List<UniPosition> orderStateList : orders) {
                 orderStateList.forEach(ord -> documentList.add(formatToDocument(ord)));
             }
             collection.insertMany(documentList);
@@ -48,8 +48,8 @@ public class OrdersStateDatabaseService {
         }
     }
 
-    public List<OrderState> retrieveOrdersState() {
-        List<OrderState> orderStatesList = new LinkedList<>();
+    public List<UniPosition> retrieveOrdersState() {
+        List<UniPosition> orderStatesList = new LinkedList<>();
         MongoClient mongo = new MongoClient( "localhost" , 27017 );
         MongoCollection<Document> collection = getCollection(mongo);
 
@@ -62,8 +62,8 @@ public class OrdersStateDatabaseService {
         return orderStatesList;
     }
 
-    private OrderState formatFromDocument(Document document) {
-        return OrderState.builder()
+    private UniPosition formatFromDocument(Document document) {
+        return UniPosition.builder()
                 .traderId(document.getString("traderId"))
                 .symbol(document.getString("symbol"))
                 .side(PositionSide.valueOf(document.getString("side")))
@@ -78,7 +78,7 @@ public class OrdersStateDatabaseService {
                 .build();
     }
 
-    private Document formatToDocument(OrderState orderState) {
+    private Document formatToDocument(UniPosition orderState) {
         Document document = new Document();
         document.append("traderId", orderState.getTraderId());
         document.append("symbol", orderState.getSymbol());
@@ -104,6 +104,6 @@ public class OrdersStateDatabaseService {
             collection = getProperty("test.mongo.collection");
         }
         return mongo.getDatabase(database).getCollection(collection);
-    }
+    }*/
 
 }

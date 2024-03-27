@@ -24,6 +24,20 @@ public class LeadTraderDatabaseService {
     }
 
     /**
+     * Checks if there are active positions that are not stored in db.
+     * @return list of symbols
+     */
+    public List<String> getUnknownOrders() {
+        List<String> activePositions = new ArrayList<>(client.positionInfo().stream().map(PositionDto::getSymbol).toList());
+        List<String> unmarkedOrders = getUnmarkedOrders();
+        HashMap<String, List<String>> tradersOrders = getLeaderIdsAndOrders();
+        List<String> markedOrders = tradersOrders.values().stream().flatMap(Collection::stream).toList();
+        activePositions.removeAll(unmarkedOrders);
+        activePositions.removeAll(markedOrders);
+        return activePositions;
+    }
+
+    /**
      * Checks that unmarked and trader orders exist as active positions, if not remove from db.
      */
     public void actualizeDB() {
@@ -200,7 +214,7 @@ public class LeadTraderDatabaseService {
             mongo.close();
         } else {
             mongo.close();
-            System.out.println("UNMARKED ORDERS DOCUMENT NOT FOUND");
+            throw new IllegalArgumentException("UNMARKED ORDERS DOCUMENT NOT FOUND");
         }
     }
 
@@ -224,8 +238,10 @@ public class LeadTraderDatabaseService {
             collection.insertOne(updated);
             mongo.close();
         } else {
+            Document newDoc = new Document();
+            newDoc.append("orders", List.of(symbol));
+            collection.insertOne(newDoc);
             mongo.close();
-            System.out.println("UNMARKED ORDERS DOCUMENT NOT FOUND");
         }
     }
 

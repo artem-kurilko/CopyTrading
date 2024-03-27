@@ -7,4 +7,5 @@
 - overwrite emulate and execute methods
 - test add 20 traders and their trades
 
+Update futures cookies 26/03/24 11:11
 Balance: $95.3794 24/03/24 19:20

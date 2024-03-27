@@ -60,10 +60,11 @@ public class SimplePositionNotifier {
     public static final Logger log = initLogger();
 
     // trading
-    private static final int numOfLeadTraders = 5;
+    private static final int numOfLeadTraders = 6;
     private static final int maxNumberOfOrders = 15;
     // max price change in percentage, i.e. lead trader position long, and price raised to 3 percentage then don't copy
     private static final int maxProfitAllowed = 3;
+    private static final int maxDownfallAllowed = 6;
     private static final int MAX_LEVERAGE = 12;
 
     // sockets
@@ -76,6 +77,9 @@ public class SimplePositionNotifier {
         ((LoggerContext) LoggerFactory.getILoggerFactory()).getLogger("org.mongodb.driver").setLevel(Level.ERROR);
 
         // actualize that mark and unmarked orders exist
+        if (!db.getUnknownOrders().isEmpty()) {
+            throw new RuntimeException("There are unknown orders: " + db.getUnknownOrders());
+        }
         db.actualizeDB();
         leftOrdersProcessor.proceedLeftOrders();
         List<String> ids = getIds();
@@ -99,7 +103,7 @@ public class SimplePositionNotifier {
                             }
                         }
                     } catch (NullPointerException ex) {
-                        if (ex.getMessage().contains("return value of \"com.copytrading.sources.binance.futuresleaderboard.model.response.position.TraderPositions.getData()\" is null")) {
+                        if (ex.getMessage().contains("because the return value of \"com.copytrading.sources.futuresleaderboard.model.response.position.TraderPositionsData.getOtherPositionRetList()\" is null")) {
                             log.info("EXCEPTION SHUTDOWN: Futures leaderboard positions cookies invalid.");
                         }
                         handleException(ex);
@@ -157,6 +161,7 @@ public class SimplePositionNotifier {
                 positionsToEmulate.add(traderPositionMap.get(symbol));
             }
         }
+
         if (positionsToEmulate.isEmpty()) {
             return;
         }
@@ -172,8 +177,12 @@ public class SimplePositionNotifier {
             List<Position> sortedPositions = sortPositions(positionsToEmulate);
             for (Position positionData : sortedPositions) {
                 double margin = availableBalance >= FIXED_MARGIN_PER_ORDER ? FIXED_MARGIN_PER_ORDER : availableBalance;
-                emulateOrder(positionData, margin);
-                availableBalance -= FIXED_MARGIN_PER_ORDER;
+                if (margin <= 0) {
+                    return;
+                }
+                if (emulateOrder(positionData, margin)) {
+                    availableBalance -= margin;
+                }
             }
         } else {
             positionsToEmulate.forEach(pos -> emulateOrder(pos, FIXED_MARGIN_PER_ORDER));
@@ -207,18 +216,28 @@ public class SimplePositionNotifier {
         }).toList();
     }
 
-    private static void emulateOrder(Position position, double margin) {
-        if (isToLateToCopy(position)) {
-            return;
+    /**
+     * Emulate order according to given position.
+     * @param position position to emulate
+     * @param margin margin per order
+     * @return boolean value, true if order was created, false if not
+     */
+    private static boolean emulateOrder(Position position, double margin) {
+        if (isPositionValidToCopy(position)) {
+            return false;
         }
         String symbol = position.getSymbol();
         int leverage = adjustLeverage(position);
         double amount = margin * leverage / position.getMarkPrice();
 
+        if (margin * leverage < 5) {
+            return false;
+        }
+
         if (symbol.equals("ETHBTC")) {
             // double minNotional = 0.001;
             System.out.println("==== EXCEPTION: ETHBTC logic doesn't support");
-            return;
+            return false;
         }
 
         try {
@@ -230,15 +249,17 @@ public class SimplePositionNotifier {
             OrderDto response = client.placeOrder(params);
             db.saveOrderToTrader(position.getTraderId(), symbol);
             log.info("Emulated order. Symbol: " + response.getSymbol() + " Margin: $" + round(margin, 2) + " Trader: " + position.getTraderId());
+            return true;
         } catch (InsufficientMarginException ex) {
-            System.out.println("==== EXCEPTION: " + ex.getMessage());
+            System.out.println("==== EXCEPTION: Symbol: " + symbol + " " + " Margin: $" + round(margin, 2) + " Leverage: " + leverage + " " + ex.getMessage());
         } catch (BinanceClientException clientException) {
-            if (clientException.getMessage().contains("Order's notional must be no smaller")) {
-                System.out.println("==== EXCEPTION: Symbol: " + symbol + " " + clientException.getMessage());
+            if (clientException.getMessage().contains("Order's notional must be no smaller") || clientException.getMessage().contains("Margin is insufficient")) {
+                System.out.println("==== EXCEPTION: Symbol: " + symbol + " " + " Margin: $" + round(margin, 2) + " Leverage: " + leverage + " " + clientException.getMessage());
             } else {
                 throw clientException;
             }
         }
+        return false;
     }
 
     private static void executeOrder(PositionDto positionDto) {
@@ -323,15 +344,23 @@ public class SimplePositionNotifier {
      * @param positionData {@link Position} instance
      * @return boolean value
      */
-    private static boolean isToLateToCopy(Position positionData) {
+    private static boolean isPositionValidToCopy(Position positionData) {
         OrderSide side = getPositionSide(positionData);
         double entry = positionData.getEntryPrice();
         double mark = positionData.getMarkPrice();
-        if (side.equals(BUY) && ((mark * 100 / entry) - 100) <= maxProfitAllowed) {
-            return false;
-        }
-        if (side.equals(SELL) && (mark * 100 / entry) >= (100-maxProfitAllowed)) {
-            return false;
+        double curPriceDiff = (mark * 100 / entry);
+
+        if (positionData.getPnl() < 0 && !getMainOrderSide(5).equals(side)) {
+            if ((side.equals(SELL) && curPriceDiff-100 >= maxDownfallAllowed) || (side.equals(BUY) && 100-curPriceDiff >= maxDownfallAllowed)) {
+                return false;
+            }
+        } else if (positionData.getPnl() >= 0) {
+            if (side.equals(BUY) && (curPriceDiff - 100) <= maxProfitAllowed) {
+                return false;
+            }
+            if (side.equals(SELL) && (curPriceDiff >= (100 - maxProfitAllowed))) {
+                return false;
+            }
         }
         return true;
     }

@@ -2,17 +2,33 @@ package com.copytrading.service;
 
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 
+import static com.copytrading.sources.futuresleaderboard.FuturesLeaderboardScrapper.getLink;
+import static com.copytrading.sources.futuresleaderboard.FuturesLeaderboardScrapper.isPositionShared;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Test class for {@link LeadTraderDatabaseService}
  */
 public class LeadTraderDatabaseServiceTest {
-    private static final LeadTraderDatabaseService db = new LeadTraderDatabaseService(false);
+    private static final LeadTraderDatabaseService db = new LeadTraderDatabaseService(true);
+
+    @Test
+    public void dontRun() {
+        List<String> ids = db.getLeaderIds();
+
+        ids.forEach(x -> {
+            try {
+                System.out.println(x + " " + getLink(x));
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
 
     @Test
     public void resetLeaderIdsAndOrdersTest() {

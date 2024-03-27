@@ -1,13 +1,12 @@
 package com.copytrading.service;
 
-import com.copytrading.model.OrderState;
 import com.copytrading.model.PositionSide;
 
 import java.util.List;
 import java.util.UUID;
 
 public class OrdersDatabaseServiceTest {
-    private static final OrdersStateDatabaseService db = new OrdersStateDatabaseService(false);
+    private static final TestnetDatabaseService db = new TestnetDatabaseService(false);
 
     public static void main(String[] args) {
         List<OrderState> orders = List.of(

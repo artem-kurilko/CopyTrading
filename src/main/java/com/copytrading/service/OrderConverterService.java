@@ -40,7 +40,7 @@ public class OrderConverterService {
         LinkedHashMap<String,Object> params = new LinkedHashMap<>();
         params.put("symbol", symbol);
         params.put("side", side);
-        params.put("quantity", Double.toString(quantity));
+        params.put("quantity", Double.toString(Math.abs(quantity)));
         return params;
     }
 

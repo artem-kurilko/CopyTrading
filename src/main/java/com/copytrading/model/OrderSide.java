@@ -13,6 +13,10 @@ public enum OrderSide {
     BUY,
     SELL;
 
+    public static void main(String[] args) {
+        System.out.println(getMainOrderSide(5));
+    }
+
     /**
      * Returns main order side of positions, for example from sell, sell, buy, sell - main side is sell.
      * @return order side
